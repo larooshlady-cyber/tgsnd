@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+venv/
+.env
+
+# Sessions (contain auth tokens)
+sessions/*.session
+sessions/*.session-journal
+
+# Database
+data/*.db
+
+# OS
+.DS_Store
+
+# Old CSV data
+*.csv
+
+# Old standalone session files
+*.session
+*.session-journal

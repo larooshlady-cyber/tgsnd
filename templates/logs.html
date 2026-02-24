@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Logs - TG Sender{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Logs</h1>
+</div>
+
+<div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('send')">Send Logs</button>
+    <button class="tab-btn" onclick="switchTab('import')">Import Logs</button>
+</div>
+
+<div class="toolbar">
+    <select id="log-status-filter" onchange="loadCurrentLogs(1)">
+        <option value="">All Statuses</option>
+        <option value="sent">Sent</option>
+        <option value="failed">Failed</option>
+        <option value="peer_flood">Peer Flood</option>
+        <option value="not_on_telegram">Not on TG</option>
+        <option value="added">Added</option>
+        <option value="not_found">Not Found</option>
+        <option value="error">Error</option>
+    </select>
+    <span id="log-total" style="color:var(--text-muted);font-size:13px"></span>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead id="log-thead"></thead>
+            <tbody id="log-tbody"><tr><td colspan="7" style="color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="log-pagination"></div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentTab = 'send';
+let logPage = 1;
+
+function switchTab(tab) {
+    currentTab = tab;
+    document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    loadCurrentLogs(1);
+}
+
+function loadCurrentLogs(page) {
+    logPage = page || 1;
+    if (currentTab === 'send') loadSendLogs(logPage);
+    else loadImportLogs(logPage);
+}
+
+async function loadSendLogs(page) {
+    const status = document.getElementById('log-status-filter').value;
+    const params = new URLSearchParams({ page, per_page: 50 });
+    if (status) params.set('status', status);
+
+    document.getElementById('log-thead').innerHTML = `
+        <tr><th>Time</th><th>Phone</th><th>Name</th><th>Status</th><th>Account</th><th>Error</th><th>Message</th></tr>`;
+
+    try {
+        const data = await api(`/api/logs/send?${params}`);
+        document.getElementById('log-total').textContent = `${data.total} entries`;
+
+        const tbody = document.getElementById('log-tbody');
+        if (data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">No logs yet</td></tr>';
+        } else {
+            tbody.innerHTML = data.logs.map(l => `
+                <tr>
+                    <td style="font-size:12px;white-space:nowrap">${escapeHtml(l.sent_at)}</td>
+                    <td>${escapeHtml(l.phone)}</td>
+                    <td>${escapeHtml(l.name)}</td>
+                    <td>${statusBadge(l.status)}</td>
+                    <td>${escapeHtml(l.account)}</td>
+                    <td style="font-size:12px;color:var(--danger)">${escapeHtml(l.error_msg || '')}</td>
+                    <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis">${escapeHtml(l.message_preview)}</td>
+                </tr>
+            `).join('');
+        }
+
+        renderPagination('log-pagination', data.page, data.pages, loadCurrentLogs);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function loadImportLogs(page) {
+    const status = document.getElementById('log-status-filter').value;
+    const params = new URLSearchParams({ page, per_page: 50 });
+    if (status) params.set('status', status);
+
+    document.getElementById('log-thead').innerHTML = `
+        <tr><th>Time</th><th>Phone</th><th>Status</th><th>TG Name</th><th>Username</th><th>Account</th><th>Error</th></tr>`;
+
+    try {
+        const data = await api(`/api/logs/import?${params}`);
+        document.getElementById('log-total').textContent = `${data.total} entries`;
+
+        const tbody = document.getElementById('log-tbody');
+        if (data.logs.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="7" style="color:var(--text-muted)">No logs yet</td></tr>';
+        } else {
+            tbody.innerHTML = data.logs.map(l => `
+                <tr>
+                    <td style="font-size:12px;white-space:nowrap">${escapeHtml(l.imported_at)}</td>
+                    <td>${escapeHtml(l.phone)}</td>
+                    <td>${statusBadge(l.status)}</td>
+                    <td>${escapeHtml(l.tg_name || '')}</td>
+                    <td>${l.tg_username ? '@' + escapeHtml(l.tg_username) : '-'}</td>
+                    <td>${escapeHtml(l.account)}</td>
+                    <td style="font-size:12px;color:var(--danger)">${escapeHtml(l.error_msg || '')}</td>
+                </tr>
+            `).join('');
+        }
+
+        renderPagination('log-pagination', data.page, data.pages, loadCurrentLogs);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+loadCurrentLogs(1);
+</script>
+{% endblock %}

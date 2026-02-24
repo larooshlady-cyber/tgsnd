@@ -1,0 +1,517 @@
+{% extends "base.html" %}
+{% block title %}Contacts - TG Sender{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Contacts</h1>
+    <div style="display:flex;gap:8px">
+        <button class="btn btn-success btn-sm" onclick="openAddModal()">+ Add Contact</button>
+        <button class="btn btn-outline btn-sm" onclick="exportContacts()">Export CSV</button>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer">
+            Upload CSV
+            <input type="file" accept=".csv" onchange="uploadCSV(this)" style="display:none">
+        </label>
+    </div>
+</div>
+
+<!-- Scan Section -->
+<div class="card" id="scan-card">
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px">
+        <div>
+            <h3 style="margin-bottom:4px">Scan Contacts</h3>
+            <p style="font-size:13px;color:var(--text-muted)">
+                Resolve phone numbers on Telegram to get user IDs, names &amp; usernames.
+                <span id="unscanned-count" style="color:var(--primary)"></span>
+            </p>
+        </div>
+        <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+            <div id="scan-accounts-list" style="display:flex;gap:8px;flex-wrap:wrap;font-size:13px">
+                <span style="color:var(--text-muted)">Loading accounts...</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:6px">
+                <label style="font-size:12px;color:var(--text-muted);white-space:nowrap">Delay:</label>
+                <input type="number" id="scan-delay-min" value="30" min="1" style="width:55px" title="Min delay (sec)">
+                <span style="color:var(--text-muted)">-</span>
+                <input type="number" id="scan-delay-max" value="60" min="1" style="width:55px" title="Max delay (sec)">
+                <span style="font-size:11px;color:var(--text-muted)">sec</span>
+            </div>
+            <button class="btn btn-success btn-sm" id="scan-all-btn" onclick="startScan('all')">Scan All Unknown</button>
+            <button class="btn btn-info btn-sm" id="rescan-btn" onclick="startScan('rescan')" style="background:var(--info)">Rescan All</button>
+            <button class="btn btn-outline btn-sm" id="scan-sel-btn" onclick="startScan('selected')" style="display:none">Scan Selected</button>
+            <button class="btn btn-outline btn-sm" id="rescan-sel-btn" onclick="startScan('rescan_selected')" style="display:none">Rescan Selected</button>
+        </div>
+    </div>
+
+    <!-- Scan Progress -->
+    <div id="scan-progress" style="display:none;margin-top:16px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
+            <div style="display:flex;gap:16px;font-size:13px">
+                <span>Found: <strong id="scan-found" style="color:var(--success)">0</strong></span>
+                <span>Not found: <strong id="scan-notfound" style="color:var(--danger)">0</strong></span>
+                <span>Errors: <strong id="scan-errors" style="color:var(--warning)">0</strong></span>
+            </div>
+            <button class="btn btn-danger btn-sm" onclick="stopScan()">Stop</button>
+        </div>
+        <div class="progress-bar"><div class="fill" id="scan-bar" style="width:0%"></div></div>
+        <div id="scan-label" style="font-size:12px;color:var(--text-muted);margin-bottom:8px">0 / 0</div>
+        <div class="progress-log" id="scan-log" style="max-height:200px"></div>
+    </div>
+</div>
+
+<div class="toolbar">
+    <input type="text" id="search-input" placeholder="Search phone, name, username..." oninput="debounceSearch()">
+    <select id="filter-tg" onchange="loadContacts(1)">
+        <option value="">All TG Status</option>
+        <option value="on_telegram">On Telegram</option>
+        <option value="not_found">Not Found</option>
+        <option value="unknown">Unknown</option>
+    </select>
+    <select id="filter-send" onchange="loadContacts(1)">
+        <option value="">All Send Status</option>
+        <option value="pending">Pending</option>
+        <option value="sent">Sent</option>
+        <option value="failed">Failed</option>
+        <option value="peer_flood">Peer Flood</option>
+    </select>
+    <select id="filter-seen" onchange="loadContacts(1)">
+        <option value="">All Activity</option>
+        <option value="active">Active (Online/Recently)</option>
+        <option value="last_week">Last Week</option>
+        <option value="last_month">Last Month</option>
+        <option value="inactive">Inactive (Month+)</option>
+        <option value="unknown">Unknown</option>
+    </select>
+    <span id="total-label" style="color:var(--text-muted);font-size:13px"></span>
+</div>
+
+<div id="bulk-actions" style="display:none;margin-bottom:12px">
+    <span id="selected-count" style="font-size:13px;color:var(--primary);margin-right:12px"></span>
+    <button class="btn btn-danger btn-sm" onclick="bulkDelete()">Delete Selected</button>
+    <button class="btn btn-outline btn-sm" onclick="clearSelection()">Clear</button>
+</div>
+
+<div class="card">
+    <div class="table-wrap">
+        <table>
+            <thead>
+                <tr>
+                    <th><input type="checkbox" id="select-all" onchange="toggleAll(this)"></th>
+                    <th>Phone</th>
+                    <th>Name</th>
+                    <th>TG Status</th>
+                    <th>TG ID</th>
+                    <th>TG Name</th>
+                    <th>TG Username</th>
+                    <th>Last Seen</th>
+                    <th>Send Status</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="contacts-table"><tr><td colspan="10" style="color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+    </div>
+    <div class="pagination" id="pagination"></div>
+</div>
+
+<!-- Add Contact Modal -->
+<div id="add-modal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.6);z-index:1000;display:none;align-items:center;justify-content:center">
+    <div style="background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:24px;width:100%;max-width:420px">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+            <h3>Add Contact</h3>
+            <button onclick="closeAddModal()" style="background:none;border:none;color:var(--text-muted);font-size:20px;cursor:pointer">&times;</button>
+        </div>
+        <div class="form-group">
+            <label>Phone Number *</label>
+            <input type="text" id="add-phone" placeholder="+1234567890">
+        </div>
+        <div class="form-group">
+            <label>Name</label>
+            <input type="text" id="add-name" placeholder="John Doe">
+        </div>
+        <div class="form-group">
+            <label>Token</label>
+            <input type="text" id="add-token" placeholder="Optional token">
+        </div>
+        <div class="form-group">
+            <label>Link</label>
+            <input type="text" id="add-link" placeholder="Optional link">
+        </div>
+        <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:16px">
+            <button class="btn btn-outline btn-sm" onclick="closeAddModal()">Cancel</button>
+            <button class="btn btn-primary btn-sm" onclick="addContact()">Add Contact</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function lastSeenBadge(status) {
+    const map = {
+        online: { label: 'Online', color: '#22c55e' },
+        recently: { label: 'Recently', color: '#3b82f6' },
+        last_week: { label: 'Last Week', color: '#f59e0b' },
+        last_month: { label: 'Last Month', color: '#f97316' },
+        long_ago: { label: 'Long Ago', color: '#ef4444' },
+        unknown: { label: '-', color: '#6b7280' }
+    };
+    const s = map[status] || map.unknown;
+    if (s.label === '-') return '-';
+    return `<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:${s.color}22;color:${s.color};font-weight:500">${s.label}</span>`;
+}
+
+let currentPage = 1;
+let selectedIds = new Set();
+let debounceTimer;
+let scanJobId = null;
+let scanEventSource = null;
+
+function debounceSearch() {
+    clearTimeout(debounceTimer);
+    debounceTimer = setTimeout(() => loadContacts(1), 300);
+}
+
+async function loadContacts(page) {
+    currentPage = page || 1;
+    const search = document.getElementById('search-input').value.trim();
+    const tgStatus = document.getElementById('filter-tg').value;
+    const sendStatus = document.getElementById('filter-send').value;
+
+    const lastSeen = document.getElementById('filter-seen').value;
+
+    const params = new URLSearchParams({ page: currentPage, per_page: 50 });
+    if (search) params.set('search', search);
+    if (tgStatus) params.set('telegram_status', tgStatus);
+    if (sendStatus) params.set('send_status', sendStatus);
+    if (lastSeen) params.set('last_seen', lastSeen);
+
+    try {
+        const data = await api(`/api/contacts?${params}`);
+        document.getElementById('total-label').textContent = `${data.total} contacts`;
+
+        const tbody = document.getElementById('contacts-table');
+        if (data.contacts.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="10" style="color:var(--text-muted)">No contacts found</td></tr>';
+        } else {
+            tbody.innerHTML = data.contacts.map(c => `
+                <tr>
+                    <td><input type="checkbox" value="${c.id}" ${selectedIds.has(c.id) ? 'checked' : ''} onchange="toggleSelect(${c.id}, this.checked)"></td>
+                    <td>${escapeHtml(c.phone)}</td>
+                    <td>${escapeHtml(c.name)}</td>
+                    <td>${statusBadge(c.telegram_status)}</td>
+                    <td style="font-family:monospace;font-size:12px;color:var(--text-muted)">${c.tg_user_id || '-'}</td>
+                    <td>${escapeHtml(c.tg_name || '-')}</td>
+                    <td>${c.tg_username ? '@' + escapeHtml(c.tg_username) : '-'}</td>
+                    <td>${lastSeenBadge(c.tg_last_seen)}</td>
+                    <td>${statusBadge(c.last_send_status)}</td>
+                    <td><button class="btn btn-danger btn-sm" onclick="deleteContact(${c.id})">Del</button></td>
+                </tr>
+            `).join('');
+        }
+
+        renderPagination('pagination', data.page, data.pages, loadContacts);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+function toggleSelect(id, checked) {
+    if (checked) selectedIds.add(id);
+    else selectedIds.delete(id);
+    updateBulkActions();
+}
+
+function toggleAll(el) {
+    document.querySelectorAll('#contacts-table input[type="checkbox"]').forEach(cb => {
+        cb.checked = el.checked;
+        const id = parseInt(cb.value);
+        if (el.checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+    });
+    updateBulkActions();
+}
+
+function updateBulkActions() {
+    const bar = document.getElementById('bulk-actions');
+    const count = document.getElementById('selected-count');
+    const scanSelBtn = document.getElementById('scan-sel-btn');
+    const rescanSelBtn = document.getElementById('rescan-sel-btn');
+    if (selectedIds.size > 0) {
+        bar.style.display = 'block';
+        count.textContent = `${selectedIds.size} selected`;
+        scanSelBtn.style.display = 'inline-flex';
+        rescanSelBtn.style.display = 'inline-flex';
+    } else {
+        bar.style.display = 'none';
+        scanSelBtn.style.display = 'none';
+        rescanSelBtn.style.display = 'none';
+    }
+}
+
+function clearSelection() {
+    selectedIds.clear();
+    document.querySelectorAll('#contacts-table input[type="checkbox"]').forEach(cb => cb.checked = false);
+    document.getElementById('select-all').checked = false;
+    updateBulkActions();
+}
+
+async function deleteContact(id) {
+    if (!confirm('Delete this contact?')) return;
+    try {
+        await api(`/api/contacts/${id}`, { method: 'DELETE' });
+        toast('Deleted', 'success');
+        loadContacts(currentPage);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function bulkDelete() {
+    if (!confirm(`Delete ${selectedIds.size} contacts?`)) return;
+    try {
+        await api('/api/contacts/bulk-delete', { method: 'POST', body: { ids: Array.from(selectedIds) } });
+        toast(`Deleted ${selectedIds.size} contacts`, 'success');
+        selectedIds.clear();
+        updateBulkActions();
+        loadContacts(currentPage);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function uploadCSV(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const form = new FormData();
+    form.append('file', file);
+    try {
+        const stats = await api('/api/contacts/upload', { method: 'POST', body: form });
+        toast(`Created: ${stats.created}, Updated: ${stats.updated}, Skipped: ${stats.skipped}`, 'success');
+        loadContacts(1);
+        loadUnscannedCount();
+    } catch (e) { toast(e.message, 'error'); }
+    input.value = '';
+}
+
+function exportContacts() {
+    window.location.href = '/api/contacts/export';
+}
+
+// === Scan Feature ===
+
+async function loadScanAccounts() {
+    try {
+        const accounts = await api('/api/accounts');
+        const container = document.getElementById('scan-accounts-list');
+        if (accounts.length === 0) {
+            container.innerHTML = '<span style="color:var(--text-muted)">No accounts. Add one first.</span>';
+            return;
+        }
+        container.innerHTML = accounts.map(a => `
+            <label style="display:flex;align-items:center;gap:4px;cursor:${a.is_connected ? 'pointer' : 'not-allowed'};opacity:${a.is_connected ? '1' : '0.5'}">
+                <input type="checkbox" class="scan-account-cb" value="${a.id}" ${a.is_connected ? 'checked' : 'disabled'}>
+                <span>${a.phone}</span>
+            </label>
+        `).join('');
+    } catch (e) {}
+}
+
+function getSelectedAccountIds() {
+    return Array.from(document.querySelectorAll('.scan-account-cb:checked')).map(cb => parseInt(cb.value));
+}
+
+async function loadUnscannedCount() {
+    try {
+        const data = await api('/api/contacts/unscanned-ids');
+        document.getElementById('unscanned-count').textContent = `${data.count} contacts not scanned yet.`;
+    } catch (e) {}
+}
+
+async function startScan(mode) {
+    const accountIds = getSelectedAccountIds();
+    if (accountIds.length === 0) { toast('Select at least one connected account', 'error'); return; }
+
+    const delayMin = parseFloat(document.getElementById('scan-delay-min').value) || 30;
+    const delayMax = parseFloat(document.getElementById('scan-delay-max').value) || 60;
+
+    let contactIds;
+    if (mode === 'selected' || mode === 'rescan_selected') {
+        contactIds = Array.from(selectedIds);
+        if (contactIds.length === 0) { toast('No contacts selected', 'error'); return; }
+    } else if (mode === 'rescan') {
+        try {
+            const data = await api('/api/contacts/scanned-ids');
+            contactIds = data.ids;
+            if (contactIds.length === 0) { toast('No scanned contacts to rescan!', 'info'); return; }
+        } catch (e) { toast(e.message, 'error'); return; }
+    } else {
+        try {
+            const data = await api('/api/contacts/unscanned-ids');
+            contactIds = data.ids;
+            if (contactIds.length === 0) { toast('All contacts already scanned!', 'info'); return; }
+        } catch (e) { toast(e.message, 'error'); return; }
+    }
+
+    try {
+        const result = await api('/api/import/start', {
+            method: 'POST',
+            body: { contact_ids: contactIds, account_ids: accountIds, delay_min: delayMin, delay_max: delayMax }
+        });
+
+        scanJobId = result.job_id;
+        document.getElementById('scan-all-btn').disabled = true;
+        document.getElementById('scan-sel-btn').disabled = true;
+        document.getElementById('scan-progress').style.display = 'block';
+        document.getElementById('scan-log').innerHTML = '';
+        document.getElementById('scan-found').textContent = '0';
+        document.getElementById('scan-notfound').textContent = '0';
+        document.getElementById('scan-errors').textContent = '0';
+
+        startScanStream(scanJobId);
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+function startScanStream(jobId) {
+    let found = 0, notfound = 0, errors = 0;
+
+    document.getElementById('scan-all-btn').disabled = true;
+    document.getElementById('scan-sel-btn').disabled = true;
+    document.getElementById('scan-progress').style.display = 'block';
+
+    scanEventSource = new EventSource(`/api/import/progress/${jobId}`);
+    scanEventSource.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+
+        if (data.done) {
+            scanEventSource.close();
+            scanDone();
+            toast('Scan complete!', 'success');
+            // Clear finished job on server
+            api(`/api/import/clear/${scanJobId}`, { method: 'POST' }).catch(() => {});
+            return;
+        }
+        if (data.error) {
+            scanEventSource.close();
+            scanDone();
+            toast(data.error, 'error');
+            api(`/api/import/clear/${scanJobId}`, { method: 'POST' }).catch(() => {});
+            return;
+        }
+        if (data.status === 'cancelled') {
+            scanEventSource.close();
+            scanDone();
+            toast('Scan cancelled', 'info');
+            api(`/api/import/clear/${scanJobId}`, { method: 'POST' }).catch(() => {});
+            return;
+        }
+
+        if (data.status === 'added') found++;
+        else if (data.status === 'not_found') notfound++;
+        else if (data.status === 'error' || data.status === 'peer_flood') errors++;
+
+        document.getElementById('scan-found').textContent = found;
+        document.getElementById('scan-notfound').textContent = notfound;
+        document.getElementById('scan-errors').textContent = errors;
+
+        const pct = Math.round((data.current / data.total) * 100);
+        document.getElementById('scan-bar').style.width = pct + '%';
+        document.getElementById('scan-label').textContent = `${data.current} / ${data.total}`;
+
+        const log = document.getElementById('scan-log');
+        const entry = document.createElement('div');
+        const statusClass = data.status === 'added' ? 'sent' : data.status === 'not_found' ? 'not_found' : 'failed';
+        entry.className = `entry ${statusClass}`;
+        const acctLabel = data.account ? ` [${data.account}]` : '';
+        const seenLabel = data.last_seen && data.last_seen !== 'unknown' ? ` | ${data.last_seen}` : '';
+        const info = data.status === 'added'
+            ? `FOUND — ${data.tg_name || ''} ${data.tg_username ? '(@' + data.tg_username + ')' : ''}${seenLabel}`
+            : data.status === 'not_found' ? 'NOT ON TELEGRAM'
+            : data.status === 'peer_flood' ? `PEER FLOOD${acctLabel}` : `ERROR: ${data.message}`;
+        entry.textContent = `[${data.current}/${data.total}]${acctLabel} ${data.phone} — ${info}`;
+        log.appendChild(entry);
+        log.scrollTop = log.scrollHeight;
+    };
+
+    scanEventSource.onerror = function() {
+        scanEventSource.close();
+        // Don't call scanDone — the job may still be running, we just lost connection.
+        // Try to reconnect after a short delay.
+        setTimeout(() => checkAndReconnect(), 2000);
+    };
+}
+
+function scanDone() {
+    scanJobId = null;
+    document.getElementById('scan-all-btn').disabled = false;
+    document.getElementById('scan-sel-btn').disabled = false;
+    loadContacts(currentPage);
+    loadUnscannedCount();
+}
+
+async function stopScan() {
+    if (!scanJobId) return;
+    try {
+        await api(`/api/import/stop/${scanJobId}`, { method: 'POST' });
+        toast('Stop requested...', 'info');
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+async function checkAndReconnect() {
+    try {
+        const data = await api('/api/import/active');
+        if (data.job_id) {
+            scanJobId = data.job_id;
+            document.getElementById('scan-log').innerHTML = '';
+            document.getElementById('scan-found').textContent = '0';
+            document.getElementById('scan-notfound').textContent = '0';
+            document.getElementById('scan-errors').textContent = '0';
+            startScanStream(scanJobId);
+        }
+    } catch (e) {}
+}
+
+// === Add Contact Modal ===
+function openAddModal() {
+    document.getElementById('add-modal').style.display = 'flex';
+    document.getElementById('add-phone').value = '';
+    document.getElementById('add-name').value = '';
+    document.getElementById('add-token').value = '';
+    document.getElementById('add-link').value = '';
+    document.getElementById('add-phone').focus();
+}
+
+function closeAddModal() {
+    document.getElementById('add-modal').style.display = 'none';
+}
+
+async function addContact() {
+    const phone = document.getElementById('add-phone').value.trim();
+    if (!phone) { toast('Phone number is required', 'error'); return; }
+
+    try {
+        await api('/api/contacts', {
+            method: 'POST',
+            body: {
+                phone: phone,
+                name: document.getElementById('add-name').value.trim(),
+                token: document.getElementById('add-token').value.trim(),
+                link: document.getElementById('add-link').value.trim()
+            }
+        });
+        toast('Contact added', 'success');
+        closeAddModal();
+        loadContacts(1);
+        loadUnscannedCount();
+    } catch (e) { toast(e.message, 'error'); }
+}
+
+// Close modal on Escape key
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') closeAddModal();
+});
+
+// Close modal on backdrop click
+document.getElementById('add-modal').addEventListener('click', function(e) {
+    if (e.target === this) closeAddModal();
+});
+
+// Init
+loadContacts(1);
+loadScanAccounts();
+loadUnscannedCount();
+checkAndReconnect();
+</script>
+{% endblock %}

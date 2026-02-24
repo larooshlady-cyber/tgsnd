@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+{% block title %}Dashboard - TG Sender{% endblock %}
+{% block content %}
+<div class="page-header">
+    <h1>Dashboard</h1>
+    <button class="btn btn-outline btn-sm" onclick="loadStats()">Refresh</button>
+</div>
+
+<div class="stats-grid" id="stats-grid">
+    <div class="stat-card"><div class="label">Total Contacts</div><div class="value" id="stat-total">-</div></div>
+    <div class="stat-card"><div class="label">On Telegram</div><div class="value success" id="stat-on-tg">-</div></div>
+    <div class="stat-card"><div class="label">Messages Sent</div><div class="value info" id="stat-sent">-</div></div>
+    <div class="stat-card"><div class="label">Peer Floods</div><div class="value warning" id="stat-flood">-</div></div>
+    <div class="stat-card"><div class="label">Not Found</div><div class="value danger" id="stat-not-found">-</div></div>
+    <div class="stat-card"><div class="label">Pending</div><div class="value" id="stat-pending">-</div></div>
+    <div class="stat-card"><div class="label">Accounts</div><div class="value" id="stat-accounts">-</div></div>
+    <div class="stat-card"><div class="label">Failed Sends</div><div class="value danger" id="stat-failed">-</div></div>
+</div>
+
+<div class="card">
+    <h3 style="margin-bottom: 16px;">Recent Send Activity</h3>
+    <div class="table-wrap">
+        <table>
+            <thead><tr><th>Phone</th><th>Name</th><th>Status</th><th>Account</th><th>Time</th></tr></thead>
+            <tbody id="recent-sends"><tr><td colspan="5" style="color:var(--text-muted)">Loading...</td></tr></tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+async function loadStats() {
+    try {
+        const data = await api('/api/stats');
+        document.getElementById('stat-total').textContent = data.contacts.total;
+        document.getElementById('stat-on-tg').textContent = data.contacts.on_telegram;
+        document.getElementById('stat-sent').textContent = data.sending.total_sent;
+        document.getElementById('stat-flood').textContent = data.sending.total_peer_flood;
+        document.getElementById('stat-not-found').textContent = data.contacts.not_found;
+        document.getElementById('stat-pending').textContent = data.sending.pending;
+        document.getElementById('stat-accounts').textContent = `${data.accounts.connected}/${data.accounts.total}`;
+        document.getElementById('stat-failed').textContent = data.sending.total_failed;
+
+        const tbody = document.getElementById('recent-sends');
+        if (data.recent_sends.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No send activity yet</td></tr>';
+        } else {
+            tbody.innerHTML = data.recent_sends.map(s => `
+                <tr>
+                    <td>${escapeHtml(s.phone)}</td>
+                    <td>${escapeHtml(s.name)}</td>
+                    <td>${statusBadge(s.status)}</td>
+                    <td>${escapeHtml(s.account)}</td>
+                    <td>${escapeHtml(s.sent_at)}</td>
+                </tr>
+            `).join('');
+        }
+    } catch (e) {
+        toast(e.message, 'error');
+    }
+}
+
+loadStats();
+</script>
+{% endblock %}

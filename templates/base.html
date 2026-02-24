@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Telegram Sender{% endblock %}</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <nav class="sidebar">
+        <div class="sidebar-logo">TG Sender</div>
+        <ul class="sidebar-nav">
+            <li><a href="/" id="nav-dashboard"><span class="icon">&#9632;</span> Dashboard</a></li>
+            <li><a href="/contacts" id="nav-contacts"><span class="icon">&#9782;</span> Contacts</a></li>
+            <li><a href="/send" id="nav-send"><span class="icon">&#9993;</span> Send</a></li>
+            <li><a href="/chats" id="nav-chats"><span class="icon">&#128172;</span> Chats <span id="unread-badge" class="nav-badge" style="display:none;"></span></a></li>
+            <li><a href="/accounts" id="nav-accounts"><span class="icon">&#9881;</span> Accounts</a></li>
+            <li><a href="/logs" id="nav-logs"><span class="icon">&#9776;</span> Logs</a></li>
+        </ul>
+    </nav>
+
+    <div class="main">
+        {% block content %}{% endblock %}
+    </div>
+
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+    {% block scripts %}{% endblock %}
+
+    <script>
+        // Highlight active nav item
+        const path = window.location.pathname;
+        document.querySelectorAll('.sidebar-nav a').forEach(a => {
+            if (a.getAttribute('href') === path) a.classList.add('active');
+        });
+
+        // Poll unread count for chat badge
+        function updateUnreadBadge() {
+            fetch('/api/chats/unread-count').then(r => r.json()).then(data => {
+                const badge = document.getElementById('unread-badge');
+                if (data.count > 0) {
+                    badge.textContent = data.count;
+                    badge.style.display = 'inline-block';
+                } else {
+                    badge.style.display = 'none';
+                }
+            }).catch(() => {});
+        }
+        updateUnreadBadge();
+        setInterval(updateUnreadBadge, 15000);
+    </script>
+</body>
+</html>
