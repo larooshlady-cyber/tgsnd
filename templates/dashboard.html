@@ -3,64 +3,470 @@
 {% block content %}
 <div class="page-header">
     <h1>Dashboard</h1>
-    <button class="btn btn-outline btn-sm" onclick="loadStats()">Refresh</button>
+    <div class="flex items-center gap-3">
+        <div class="preset-group" id="range-group">
+            <button class="preset-btn" onclick="setRange(7)">7d</button>
+            <button class="preset-btn active" onclick="setRange(14)">14d</button>
+            <button class="preset-btn" onclick="setRange(30)">30d</button>
+        </div>
+        <button class="btn btn-outline btn-sm" onclick="loadAll()">
+            <i data-lucide="refresh-cw" class="icon-sm"></i> Refresh
+        </button>
+    </div>
 </div>
 
-<div class="stats-grid" id="stats-grid">
-    <div class="stat-card"><div class="label">Total Contacts</div><div class="value" id="stat-total">-</div></div>
-    <div class="stat-card"><div class="label">On Telegram</div><div class="value success" id="stat-on-tg">-</div></div>
-    <div class="stat-card"><div class="label">Messages Sent</div><div class="value info" id="stat-sent">-</div></div>
-    <div class="stat-card"><div class="label">Peer Floods</div><div class="value warning" id="stat-flood">-</div></div>
-    <div class="stat-card"><div class="label">Not Found</div><div class="value danger" id="stat-not-found">-</div></div>
-    <div class="stat-card"><div class="label">Pending</div><div class="value" id="stat-pending">-</div></div>
-    <div class="stat-card"><div class="label">Accounts</div><div class="value" id="stat-accounts">-</div></div>
-    <div class="stat-card"><div class="label">Failed Sends</div><div class="value danger" id="stat-failed">-</div></div>
+<!-- Quick Actions -->
+<div class="quick-actions">
+    <a href="/contacts" class="quick-action-card">
+        <i data-lucide="users"></i> Contacts
+    </a>
+    <a href="/send" class="quick-action-card">
+        <i data-lucide="send"></i> Send Messages
+    </a>
+    <a href="/accounts" class="quick-action-card">
+        <i data-lucide="shield"></i> Accounts
+    </a>
+    <a href="/logs" class="quick-action-card">
+        <i data-lucide="scroll-text"></i> Logs
+    </a>
 </div>
 
+<!-- Stat Cards (6 columns) -->
+<div class="stats-grid-6">
+    <div class="stat-card" data-tint="neutral">
+        <div class="stat-icon" style="background:rgba(255,255,255,0.06);color:var(--text-secondary)">
+            <i data-lucide="users"></i>
+        </div>
+        <div class="label">Total Contacts</div>
+        <div class="value" id="stat-total">-</div>
+    </div>
+    <div class="stat-card" data-tint="success">
+        <div class="stat-icon" style="background:var(--success-muted);color:var(--success)">
+            <i data-lucide="user-check"></i>
+        </div>
+        <div class="label">On Telegram</div>
+        <div class="value success" id="stat-on-tg">-</div>
+    </div>
+    <div class="stat-card" data-tint="info">
+        <div class="stat-icon" style="background:var(--info-muted);color:var(--info)">
+            <i data-lucide="send"></i>
+        </div>
+        <div class="label">Messages Sent</div>
+        <div class="value info" id="stat-sent">-</div>
+    </div>
+    <div class="stat-card" data-tint="neutral">
+        <div class="stat-icon" style="background:rgba(255,255,255,0.06);color:var(--text-secondary)">
+            <i data-lucide="clock"></i>
+        </div>
+        <div class="label">Pending</div>
+        <div class="value" id="stat-pending">-</div>
+    </div>
+    <div class="stat-card" data-tint="warning">
+        <div class="stat-icon" style="background:var(--warning-muted);color:var(--warning)">
+            <i data-lucide="alert-triangle"></i>
+        </div>
+        <div class="label">Peer Floods</div>
+        <div class="value warning" id="stat-flood">-</div>
+    </div>
+    <div class="stat-card" data-tint="neutral">
+        <div class="stat-icon" style="background:rgba(99,102,241,0.12);color:var(--primary)">
+            <i data-lucide="shield"></i>
+        </div>
+        <div class="label">Accounts</div>
+        <div class="value" id="stat-accounts">-</div>
+        <div class="sub" id="stat-accounts-sub"></div>
+    </div>
+</div>
+
+<!-- Row 2: Daily Sends + Contact Status Doughnut -->
+<div class="dashboard-charts-row cols-3-2">
+    <div class="card">
+        <div class="flex justify-between items-center mb-4">
+            <h3>Daily Send Activity</h3>
+            <span class="text-xs text-dim" id="daily-subtitle">Last 14 days</span>
+        </div>
+        <div class="chart-container">
+            <canvas id="chart-daily"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <h3 class="mb-4">Contact Status</h3>
+        <div class="chart-container-center">
+            <canvas id="chart-contacts"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: Hourly Activity + Account Capacity -->
+<div class="dashboard-charts-row cols-1-1">
+    <div class="card">
+        <div class="flex justify-between items-center mb-4">
+            <h3>Today's Hourly Activity</h3>
+            <span class="text-xs text-dim" id="hourly-total">0 sent today</span>
+        </div>
+        <div class="chart-container-sm">
+            <canvas id="chart-hourly"></canvas>
+        </div>
+    </div>
+    <div class="card">
+        <div class="flex justify-between items-center mb-4">
+            <h3>Account Capacity</h3>
+            <a href="/accounts" class="text-xs text-primary link-plain">Manage &rarr;</a>
+        </div>
+        <div id="chart-accounts-wrap">
+            <canvas id="chart-accounts"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Recent Activity -->
 <div class="card">
-    <h3 style="margin-bottom: 16px;">Recent Send Activity</h3>
-    <div class="table-wrap">
+    <div class="flex justify-between items-center mb-4">
+        <h3>Recent Send Activity</h3>
+        <a href="/logs" class="text-xs text-primary link-plain">View all logs &rarr;</a>
+    </div>
+    <div class="table-wrap" style="max-height:320px; overflow-y:auto">
         <table>
             <thead><tr><th>Phone</th><th>Name</th><th>Status</th><th>Account</th><th>Time</th></tr></thead>
-            <tbody id="recent-sends"><tr><td colspan="5" style="color:var(--text-muted)">Loading...</td></tr></tbody>
+            <tbody id="recent-sends"><tr><td colspan="5" class="text-muted">Loading...</td></tr></tbody>
         </table>
     </div>
 </div>
 {% endblock %}
 
 {% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
-async function loadStats() {
-    try {
-        const data = await api('/api/stats');
-        document.getElementById('stat-total').textContent = data.contacts.total;
-        document.getElementById('stat-on-tg').textContent = data.contacts.on_telegram;
-        document.getElementById('stat-sent').textContent = data.sending.total_sent;
-        document.getElementById('stat-flood').textContent = data.sending.total_peer_flood;
-        document.getElementById('stat-not-found').textContent = data.contacts.not_found;
-        document.getElementById('stat-pending').textContent = data.sending.pending;
-        document.getElementById('stat-accounts').textContent = `${data.accounts.connected}/${data.accounts.total}`;
-        document.getElementById('stat-failed').textContent = data.sending.total_failed;
+// ── Read design tokens from CSS ──────────────────────────────────────
+const _cs = getComputedStyle(document.documentElement);
+const tok = (name) => _cs.getPropertyValue(name).trim();
+const T = {
+    text:      tok('--text'),
+    textSec:   tok('--text-secondary'),
+    textTer:   tok('--text-tertiary'),
+    border:    tok('--border'),
+    borderSub: tok('--border-subtle'),
+    bgElev:    tok('--bg-elevated'),
+    success:   tok('--success'),
+    danger:    tok('--danger'),
+    warning:   tok('--warning'),
+    primary:   tok('--primary'),
+};
 
-        const tbody = document.getElementById('recent-sends');
-        if (data.recent_sends.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="5" style="color:var(--text-muted)">No send activity yet</td></tr>';
-        } else {
-            tbody.innerHTML = data.recent_sends.map(s => `
-                <tr>
-                    <td>${escapeHtml(s.phone)}</td>
-                    <td>${escapeHtml(s.name)}</td>
-                    <td>${statusBadge(s.status)}</td>
-                    <td>${escapeHtml(s.account)}</td>
-                    <td>${escapeHtml(s.sent_at)}</td>
-                </tr>
-            `).join('');
+// ── Chart.js global defaults (dark theme) ───────────────────────────
+Chart.defaults.color = T.textSec;
+Chart.defaults.borderColor = T.border;
+Chart.defaults.font.family = "'Inter', -apple-system, sans-serif";
+Chart.defaults.font.size = 11;
+Chart.defaults.animation = false;
+Chart.defaults.plugins.legend.labels.boxWidth = 10;
+Chart.defaults.plugins.legend.labels.padding = 16;
+Chart.defaults.plugins.tooltip.backgroundColor = T.bgElev;
+Chart.defaults.plugins.tooltip.borderColor = tok('--border-strong');
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.titleColor = T.text;
+Chart.defaults.plugins.tooltip.bodyColor = T.textSec;
+Chart.defaults.plugins.tooltip.padding = 10;
+Chart.defaults.plugins.tooltip.cornerRadius = 8;
+Chart.defaults.scale.grid.color = T.borderSub;
+Chart.defaults.scale.ticks.color = T.textTer;
+
+// Doughnut center text plugin
+const centerTextPlugin = {
+    id: 'centerText',
+    afterDraw(chart) {
+        if (chart.config.type !== 'doughnut') return;
+        const { ctx, chartArea: { top, bottom, left, right } } = chart;
+        const cx = (left + right) / 2, cy = (top + bottom) / 2;
+        const total = chart.config.data.datasets[0].data.reduce((a, b) => a + b, 0);
+        ctx.save();
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.font = "bold 22px 'Inter', sans-serif";
+        ctx.fillStyle = T.text;
+        ctx.fillText(total.toLocaleString(), cx, cy - 8);
+        ctx.font = "11px 'Inter', sans-serif";
+        ctx.fillStyle = T.textTer;
+        ctx.fillText('contacts', cx, cy + 12);
+        ctx.restore();
+    }
+};
+Chart.register(centerTextPlugin);
+
+// ── State ────────────────────────────────────────────────────────────
+let chartDaily = null, chartContacts = null, chartHourly = null, chartAccounts = null;
+let currentDays = 14;
+
+// ── Range selector ───────────────────────────────────────────────────
+function setRange(days) {
+    currentDays = days;
+    document.querySelectorAll('#range-group .preset-btn').forEach(b => b.classList.remove('active'));
+    event.target.classList.add('active');
+    document.getElementById('daily-subtitle').textContent = `Last ${days} days`;
+    loadDaily();
+}
+
+// ── Main loader ──────────────────────────────────────────────────────
+async function loadAll() {
+    const [stats, daily, hourly, accounts] = await Promise.all([
+        api('/api/stats'),
+        api(`/api/stats/daily-sends?days=${currentDays}`),
+        api('/api/stats/hourly-sends'),
+        api('/api/stats/account-usage')
+    ]);
+    updateStatCards(stats);
+    renderDailyChart(daily);
+    renderContactsDonut(stats.contacts);
+    renderHourlyChart(hourly);
+    renderAccountsChart(accounts);
+    renderRecentTable(stats.recent_sends);
+}
+
+async function loadDaily() {
+    const daily = await api(`/api/stats/daily-sends?days=${currentDays}`);
+    renderDailyChart(daily);
+}
+
+// ── Stat cards ───────────────────────────────────────────────────────
+function updateStatCards(data) {
+    document.getElementById('stat-total').textContent = data.contacts.total.toLocaleString();
+    document.getElementById('stat-on-tg').textContent = data.contacts.on_telegram.toLocaleString();
+    document.getElementById('stat-sent').textContent = data.sending.total_sent.toLocaleString();
+    document.getElementById('stat-pending').textContent = data.sending.pending.toLocaleString();
+    document.getElementById('stat-flood').textContent = data.sending.total_peer_flood.toLocaleString();
+    document.getElementById('stat-accounts').textContent = `${data.accounts.connected}/${data.accounts.total}`;
+
+    const parts = [];
+    if (data.accounts.flood_limited > 0) parts.push(`${data.accounts.flood_limited} flood limited`);
+    document.getElementById('stat-accounts-sub').textContent = parts.join(', ');
+}
+
+// ── Daily sends chart ────────────────────────────────────────────────
+function renderDailyChart(rows) {
+    const labels = rows.map(r => {
+        const parts = r.day.split('-');
+        return `${parts[1]}/${parts[2]}`;
+    });
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Sent',
+                data: rows.map(r => r.sent),
+                backgroundColor: T.success + 'bf',
+                borderRadius: 3,
+                borderSkipped: false
+            },
+            {
+                label: 'Failed',
+                data: rows.map(r => r.failed),
+                backgroundColor: T.danger + 'bf',
+                borderRadius: 3,
+                borderSkipped: false
+            },
+            {
+                label: 'Flood',
+                data: rows.map(r => r.flood),
+                backgroundColor: T.warning + 'bf',
+                borderRadius: 3,
+                borderSkipped: false
+            }
+        ]
+    };
+    const opts = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', align: 'end' } },
+        scales: {
+            x: { grid: { display: false } },
+            y: { beginAtZero: true, ticks: { precision: 0 } }
         }
-    } catch (e) {
-        toast(e.message, 'error');
+    };
+
+    if (chartDaily) {
+        chartDaily.data = data;
+        chartDaily.update('none');
+    } else {
+        chartDaily = new Chart(document.getElementById('chart-daily'), { type: 'bar', data, options: opts });
     }
 }
 
-loadStats();
+// ── Contact status doughnut ──────────────────────────────────────────
+function renderContactsDonut(contacts) {
+    const data = {
+        labels: ['On Telegram', 'Not Found', 'Unknown'],
+        datasets: [{
+            data: [contacts.on_telegram, contacts.not_found, contacts.unknown],
+            backgroundColor: [
+                T.success + 'cc',
+                T.danger + 'cc',
+                T.textTer + '80'
+            ],
+            borderWidth: 0,
+            hoverOffset: 4
+        }]
+    };
+    const opts = {
+        responsive: true, maintainAspectRatio: false,
+        cutout: '72%',
+        plugins: {
+            legend: { position: 'bottom', labels: { padding: 16 } }
+        }
+    };
+
+    if (chartContacts) {
+        chartContacts.data = data;
+        chartContacts.update('none');
+    } else {
+        chartContacts = new Chart(document.getElementById('chart-contacts'), { type: 'doughnut', data, options: opts });
+    }
+}
+
+// ── Hourly activity chart ────────────────────────────────────────────
+function renderHourlyChart(rows) {
+    const now = new Date();
+    const currentHour = now.getHours();
+    const totalSent = rows.reduce((s, r) => s + r.sent, 0);
+    document.getElementById('hourly-total').textContent = `${totalSent} sent today`;
+
+    const bgColors = rows.map((_, i) => i === currentHour ? T.primary + 'e6' : T.primary + '66');
+    const errColors = rows.map(() => T.danger + '99');
+
+    const data = {
+        labels: rows.map(r => r.hour),
+        datasets: [
+            {
+                label: 'Sent',
+                data: rows.map(r => r.sent),
+                backgroundColor: bgColors,
+                borderRadius: 2,
+                borderSkipped: false
+            },
+            {
+                label: 'Errors',
+                data: rows.map(r => r.errors),
+                backgroundColor: errColors,
+                borderRadius: 2,
+                borderSkipped: false
+            }
+        ]
+    };
+    const opts = {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { position: 'top', align: 'end' } },
+        scales: {
+            x: { grid: { display: false }, ticks: {
+                callback: function(val, i) { return i % 3 === 0 ? this.getLabelForValue(val) : ''; }
+            }},
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+        }
+    };
+
+    if (chartHourly) {
+        chartHourly.data = data;
+        chartHourly.update('none');
+    } else {
+        chartHourly = new Chart(document.getElementById('chart-hourly'), { type: 'bar', data, options: opts });
+    }
+}
+
+// ── Account capacity chart ───────────────────────────────────────────
+function renderAccountsChart(accounts) {
+    const wrap = document.getElementById('chart-accounts-wrap');
+
+    if (accounts.length === 0) {
+        wrap.innerHTML = '<div class="empty-state"><p>No active accounts</p></div>';
+        return;
+    }
+
+    // Ensure canvas exists
+    if (!document.getElementById('chart-accounts')) {
+        wrap.innerHTML = '<canvas id="chart-accounts"></canvas>';
+    }
+
+    const h = Math.max(140, accounts.length * 32);
+    wrap.style.height = h + 'px';
+
+    const labels = accounts.map(a => a.phone);
+    const data = {
+        labels,
+        datasets: [
+            {
+                label: 'Used',
+                data: accounts.map(a => a.used),
+                backgroundColor: accounts.map(a =>
+                    a.is_flood_limited ? T.warning + 'b3' : T.primary + 'b3'
+                ),
+                borderRadius: 3,
+                borderSkipped: false
+            },
+            {
+                label: 'Remaining',
+                data: accounts.map(a => a.remaining),
+                backgroundColor: T.primary + '26',
+                borderRadius: 3,
+                borderSkipped: false
+            }
+        ]
+    };
+    const opts = {
+        responsive: true, maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {
+            legend: { display: false },
+            tooltip: {
+                callbacks: {
+                    afterBody: function(items) {
+                        const i = items[0].dataIndex;
+                        const a = accounts[i];
+                        return `Limit: ${a.limit}${a.is_flood_limited ? ' (FLOOD LIMITED)' : ''}`;
+                    }
+                }
+            }
+        },
+        scales: {
+            x: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { precision: 0 }
+            },
+            y: {
+                stacked: true,
+                grid: { display: false },
+                ticks: { font: { size: 10 } }
+            }
+        }
+    };
+
+    if (chartAccounts) {
+        chartAccounts.data = data;
+        chartAccounts.options.scales.x.stacked = true;
+        chartAccounts.options.scales.y.stacked = true;
+        chartAccounts.update('none');
+    } else {
+        chartAccounts = new Chart(document.getElementById('chart-accounts'), { type: 'bar', data, options: opts });
+    }
+}
+
+// ── Recent activity table ────────────────────────────────────────────
+function renderRecentTable(sends) {
+    const tbody = document.getElementById('recent-sends');
+    if (!sends || sends.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-muted">No send activity yet</td></tr>';
+        return;
+    }
+    tbody.innerHTML = sends.map(s => `
+        <tr>
+            <td>${escapeHtml(s.phone)}</td>
+            <td>${escapeHtml(s.name)}</td>
+            <td>${statusBadge(s.status)}</td>
+            <td>${escapeHtml(s.account)}</td>
+            <td class="text-sm nowrap">${escapeHtml(s.sent_at)}</td>
+        </tr>
+    `).join('');
+}
+
+// ── Init ─────────────────────────────────────────────────────────────
+loadAll();
+setInterval(loadAll, 60000);
 </script>
 {% endblock %}

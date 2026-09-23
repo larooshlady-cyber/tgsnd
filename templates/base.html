@@ -4,18 +4,59 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Telegram Sender{% endblock %}</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="/static/css/style.css">
+    <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
 </head>
 <body>
-    <nav class="sidebar">
-        <div class="sidebar-logo">TG Sender</div>
+    <!-- Page loader -->
+    <div class="page-loader" id="page-loader"><div class="page-loader-bar"></div></div>
+
+    <button class="menu-toggle" id="menu-toggle" onclick="toggleSidebar()">
+        <i data-lucide="menu"></i>
+    </button>
+    <div class="sidebar-overlay" id="sidebar-overlay" onclick="toggleSidebar()"></div>
+
+    <nav class="sidebar" id="sidebar">
+        <div class="sidebar-logo">
+            <i data-lucide="send"></i>
+            TG Sender
+        </div>
         <ul class="sidebar-nav">
-            <li><a href="/" id="nav-dashboard"><span class="icon">&#9632;</span> Dashboard</a></li>
-            <li><a href="/contacts" id="nav-contacts"><span class="icon">&#9782;</span> Contacts</a></li>
-            <li><a href="/send" id="nav-send"><span class="icon">&#9993;</span> Send</a></li>
-            <li><a href="/chats" id="nav-chats"><span class="icon">&#128172;</span> Chats <span id="unread-badge" class="nav-badge" style="display:none;"></span></a></li>
-            <li><a href="/accounts" id="nav-accounts"><span class="icon">&#9881;</span> Accounts</a></li>
-            <li><a href="/logs" id="nav-logs"><span class="icon">&#9776;</span> Logs</a></li>
+            <li>
+                <a href="/" id="nav-dashboard">
+                    <span class="icon"><i data-lucide="layout-dashboard"></i></span> Dashboard
+                </a>
+            </li>
+            <li class="nav-separator"></li>
+            <li>
+                <a href="/contacts" id="nav-contacts">
+                    <span class="icon"><i data-lucide="users"></i></span> Contacts
+                </a>
+            </li>
+            <li>
+                <a href="/send" id="nav-send">
+                    <span class="icon"><i data-lucide="send"></i></span> Send
+                </a>
+            </li>
+            <li>
+                <a href="/chats" id="nav-chats">
+                    <span class="icon"><i data-lucide="message-circle"></i></span> Chats
+                    <span id="unread-badge" class="nav-badge" style="display:none"></span>
+                </a>
+            </li>
+            <li class="nav-separator"></li>
+            <li>
+                <a href="/accounts" id="nav-accounts">
+                    <span class="icon"><i data-lucide="shield"></i></span> Accounts
+                </a>
+            </li>
+            <li>
+                <a href="/logs" id="nav-logs">
+                    <span class="icon"><i data-lucide="scroll-text"></i></span> Logs
+                </a>
+            </li>
         </ul>
     </nav>
 
@@ -29,11 +70,20 @@
     {% block scripts %}{% endblock %}
 
     <script>
+        // Init Lucide icons
+        lucide.createIcons();
+
         // Highlight active nav item
         const path = window.location.pathname;
         document.querySelectorAll('.sidebar-nav a').forEach(a => {
             if (a.getAttribute('href') === path) a.classList.add('active');
         });
+
+        // Mobile sidebar toggle
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+            document.getElementById('sidebar-overlay').classList.toggle('active');
+        }
 
         // Poll unread count for chat badge
         function updateUnreadBadge() {
@@ -41,7 +91,7 @@
                 const badge = document.getElementById('unread-badge');
                 if (data.count > 0) {
                     badge.textContent = data.count;
-                    badge.style.display = 'inline-block';
+                    badge.style.display = 'inline-flex';
                 } else {
                     badge.style.display = 'none';
                 }
@@ -49,6 +99,13 @@
         }
         updateUnreadBadge();
         setInterval(updateUnreadBadge, 15000);
+
+        // Close modals on Escape
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                document.querySelectorAll('.modal-overlay.active').forEach(m => m.classList.remove('active'));
+            }
+        });
     </script>
 </body>
 </html>

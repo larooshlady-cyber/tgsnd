@@ -2,318 +2,40 @@
 {% block title %}Chats - Telegram Sender{% endblock %}
 
 {% block content %}
-<style>
-    .chat-layout {
-        display: grid;
-        grid-template-columns: 340px 1fr;
-        gap: 0;
-        height: calc(100vh - 48px);
-        margin: -24px -32px;
-    }
-
-    /* Conversation list */
-    .conv-panel {
-        background: var(--bg-card);
-        border-right: 1px solid var(--border);
-        display: flex;
-        flex-direction: column;
-        overflow: hidden;
-    }
-
-    .conv-header {
-        padding: 16px;
-        border-bottom: 1px solid var(--border);
-        font-size: 18px;
-        font-weight: 600;
-    }
-
-    .conv-search {
-        padding: 8px 16px;
-        border-bottom: 1px solid var(--border);
-    }
-
-    .conv-search input {
-        width: 100%;
-        padding: 8px 12px;
-        background: var(--bg-input);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        color: var(--text);
-        font-size: 13px;
-    }
-
-    .conv-search input:focus {
-        outline: none;
-        border-color: var(--primary);
-    }
-
-    .conv-list {
-        flex: 1;
-        overflow-y: auto;
-    }
-
-    .conv-item {
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        padding: 12px 16px;
-        cursor: pointer;
-        border-bottom: 1px solid var(--border);
-        transition: background 0.15s;
-    }
-
-    .conv-item:hover { background: rgba(255,255,255,0.03); }
-    .conv-item.active { background: rgba(99,102,241,0.1); border-right: 3px solid var(--primary); }
-
-    .conv-avatar {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: var(--primary);
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-weight: 700;
-        font-size: 16px;
-        flex-shrink: 0;
-        color: #fff;
-    }
-
-    .conv-info { flex: 1; min-width: 0; }
-
-    .conv-top {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 3px;
-    }
-
-    .conv-name {
-        font-size: 14px;
-        font-weight: 600;
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .conv-time {
-        font-size: 11px;
-        color: var(--text-muted);
-        flex-shrink: 0;
-    }
-
-    .conv-preview {
-        font-size: 12px;
-        color: var(--text-muted);
-        white-space: nowrap;
-        overflow: hidden;
-        text-overflow: ellipsis;
-    }
-
-    .conv-unread {
-        background: var(--primary);
-        color: #fff;
-        font-size: 11px;
-        font-weight: 700;
-        min-width: 20px;
-        height: 20px;
-        border-radius: 10px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 6px;
-        flex-shrink: 0;
-    }
-
-    /* Message panel */
-    .msg-panel {
-        display: flex;
-        flex-direction: column;
-        background: var(--bg);
-        overflow: hidden;
-    }
-
-    .msg-header {
-        padding: 14px 20px;
-        border-bottom: 1px solid var(--border);
-        background: var(--bg-card);
-        display: flex;
-        align-items: center;
-        gap: 12px;
-    }
-
-    .msg-header-name {
-        font-size: 15px;
-        font-weight: 600;
-    }
-
-    .msg-header-username {
-        font-size: 12px;
-        color: var(--text-muted);
-    }
-
-    .msg-body {
-        flex: 1;
-        overflow-y: auto;
-        padding: 20px;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    }
-
-    .msg-empty {
-        flex: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        color: var(--text-muted);
-        font-size: 15px;
-    }
-
-    /* Chat bubbles */
-    .msg-row {
-        display: flex;
-        max-width: 70%;
-    }
-
-    .msg-row.outgoing {
-        align-self: flex-end;
-    }
-
-    .msg-row.incoming {
-        align-self: flex-start;
-    }
-
-    .msg-bubble {
-        padding: 10px 14px;
-        border-radius: 12px;
-        font-size: 14px;
-        line-height: 1.45;
-        word-break: break-word;
-        white-space: pre-wrap;
-    }
-
-    .msg-row.outgoing .msg-bubble {
-        background: var(--primary);
-        color: #fff;
-        border-bottom-right-radius: 4px;
-    }
-
-    .msg-row.incoming .msg-bubble {
-        background: var(--bg-card);
-        border: 1px solid var(--border);
-        color: var(--text);
-        border-bottom-left-radius: 4px;
-    }
-
-    .msg-meta {
-        display: flex;
-        align-items: center;
-        gap: 4px;
-        margin-top: 4px;
-        justify-content: flex-end;
-    }
-
-    .msg-row.incoming .msg-meta {
-        justify-content: flex-start;
-    }
-
-    .msg-time {
-        font-size: 10px;
-        color: rgba(255,255,255,0.5);
-    }
-
-    .msg-row.incoming .msg-time {
-        color: var(--text-muted);
-    }
-
-    .msg-status {
-        font-size: 12px;
-        line-height: 1;
-    }
-
-    .msg-status.sent { color: rgba(255,255,255,0.5); }
-    .msg-status.delivered { color: rgba(255,255,255,0.7); }
-    .msg-status.read { color: #34d399; }
-
-    /* Reply box */
-    .reply-box {
-        padding: 12px 20px;
-        border-top: 1px solid var(--border);
-        background: var(--bg-card);
-        display: flex;
-        gap: 10px;
-        align-items: flex-end;
-    }
-
-    .reply-box textarea {
-        flex: 1;
-        padding: 10px 14px;
-        background: var(--bg-input);
-        border: 1px solid var(--border);
-        border-radius: var(--radius);
-        color: var(--text);
-        font-size: 14px;
-        font-family: inherit;
-        resize: none;
-        min-height: 42px;
-        max-height: 120px;
-        line-height: 1.4;
-    }
-
-    .reply-box textarea:focus {
-        outline: none;
-        border-color: var(--primary);
-    }
-
-    .reply-box .btn {
-        height: 42px;
-        padding: 0 20px;
-    }
-
-    /* Nav badge */
-    .nav-badge {
-        background: var(--danger);
-        color: #fff;
-        font-size: 10px;
-        font-weight: 700;
-        min-width: 18px;
-        height: 18px;
-        border-radius: 9px;
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        padding: 0 5px;
-        margin-left: 4px;
-    }
-</style>
-
 <div class="chat-layout">
     <!-- Conversation list panel -->
     <div class="conv-panel">
-        <div class="conv-header" style="display:flex;justify-content:space-between;align-items:center">
+        <div class="conv-header">
             <span>Chats</span>
-            <button class="btn btn-sm btn-outline" id="check-status-btn" onclick="refreshReadStatus()" title="Check read status from Telegram">Refresh Status</button>
+            <button class="btn btn-sm btn-outline" id="check-status-btn" onclick="refreshReadStatus()" title="Check read status from Telegram">
+                <i data-lucide="refresh-cw" class="icon-sm"></i> Refresh
+            </button>
         </div>
-        <div style="padding:6px 16px;border-bottom:1px solid var(--border);display:flex;gap:12px;font-size:12px;color:var(--text-muted)">
+        <div class="conv-stats">
             <span>Total: <strong id="stat-total">0</strong></span>
-            <span>Read: <strong id="stat-read" style="color:var(--success)">0</strong></span>
-            <span>Unread: <strong id="stat-unread" style="color:var(--warning)">0</strong></span>
-            <span>Replied: <strong id="stat-replied" style="color:var(--primary)">0</strong></span>
+            <span>Read: <strong class="text-success" id="stat-read">0</strong></span>
+            <span>Unread: <strong class="text-warning" id="stat-unread">0</strong></span>
+            <span>Replied: <strong class="text-primary" id="stat-replied">0</strong></span>
         </div>
         <div class="conv-search">
             <input type="text" id="conv-search" placeholder="Search name, username, phone...">
         </div>
         <div class="conv-list" id="conv-list">
-            <div class="msg-empty" id="conv-empty">No conversations yet</div>
+            <div class="msg-empty" id="conv-empty">
+                <i data-lucide="message-circle" style="width:32px;height:32px;opacity:0.3"></i>
+                No conversations yet
+            </div>
         </div>
     </div>
 
     <!-- Message panel -->
     <div class="msg-panel" id="msg-panel">
-        <div class="msg-empty" id="msg-placeholder">Select a conversation to view messages</div>
+        <div class="msg-empty" id="msg-placeholder">
+            <i data-lucide="messages-square" style="width:48px;height:48px;opacity:0.2"></i>
+            Select a conversation to view messages
+        </div>
 
-        <div id="msg-active" style="display:none; flex:1; display:none; flex-direction:column; height:100%;">
+        <div id="msg-active" style="display:none; flex-direction:column; height:100%">
             <div class="msg-header" id="msg-header">
                 <div class="conv-avatar" id="msg-avatar"></div>
                 <div>
@@ -321,10 +43,19 @@
                     <div class="msg-header-username" id="msg-username"></div>
                 </div>
             </div>
+
+            <!-- Loading skeleton -->
+            <div class="msg-loading hidden" id="msg-loading">
+                <div class="spinner"></div>
+                <span class="text-sm text-muted">Loading messages...</span>
+            </div>
+
             <div class="msg-body" id="msg-body"></div>
             <div class="reply-box">
                 <textarea id="reply-input" rows="1" placeholder="Type a message..."></textarea>
-                <button class="btn btn-primary" id="send-btn" onclick="sendReply()">Send</button>
+                <button class="btn btn-primary" id="send-btn" onclick="sendReply()">
+                    <i data-lucide="send" class="icon-base"></i>
+                </button>
             </div>
         </div>
     </div>
@@ -379,11 +110,11 @@ function renderConversations(filter = '') {
         // Status badge
         let badge = '';
         if (c.has_reply) {
-            badge = '<span style="color:var(--success);font-size:10px;font-weight:700">REPLIED</span>';
+            badge = '<span class="badge badge-success badge-sm">REPLIED</span>';
         } else if (c.read_count > 0) {
-            badge = '<span style="color:#34d399;font-size:10px;font-weight:700">READ</span>';
+            badge = '<span class="badge badge-info badge-sm">READ</span>';
         } else {
-            badge = '<span style="color:var(--text-muted);font-size:10px">sent</span>';
+            badge = '<span class="text-xs text-dim">sent</span>';
         }
 
         return `
@@ -394,7 +125,7 @@ function renderConversations(filter = '') {
                         <span class="conv-name">${escHtml(name)}</span>
                         <span class="conv-time">${c.last_time}</span>
                     </div>
-                    <div class="conv-preview" style="display:flex;justify-content:space-between;align-items:center">
+                    <div class="conv-preview">
                         <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${dirPrefix}${escHtml(c.last_message)}</span>
                         ${badge}
                     </div>
@@ -434,10 +165,18 @@ async function openChat(tgUserId) {
         document.getElementById('msg-username').textContent = conv.tg_username ? `@${conv.tg_username}` : '';
     }
 
+    // Show loading
+    const loading = document.getElementById('msg-loading');
+    const body = document.getElementById('msg-body');
+    loading.classList.remove('hidden');
+    body.style.display = 'none';
+
     // Load messages
     const res = await fetch(`/api/chats/${tgUserId}/messages?per_page=200`);
     const data = await res.json();
-    const body = document.getElementById('msg-body');
+
+    loading.classList.add('hidden');
+    body.style.display = '';
     body.innerHTML = '';
 
     data.messages.forEach(m => {
@@ -455,7 +194,6 @@ async function openChat(tgUserId) {
 }
 
 function statusIcon(status) {
-    // Single check = sent, double check green = read
     if (status === 'read') return '<span class="msg-status read" title="Read">&#10003;&#10003;</span>';
     return '<span class="msg-status sent" title="Sent">&#10003;</span>';
 }
@@ -543,20 +281,16 @@ function connectSSE() {
         if (data.type === 'new_message') {
             const msg = data.message;
 
-            // If this chat is open, append the message
             if (msg.tg_user_id === activeUserId) {
                 appendMessage(msg);
                 document.getElementById('msg-body').scrollTop = document.getElementById('msg-body').scrollHeight;
-                // Mark as read
                 fetch(`/api/chats/${msg.tg_user_id}/read`, { method: 'POST' });
             }
 
-            // Refresh conversation list
             loadConversations();
         }
 
         if (data.type === 'read_receipt') {
-            // Update checkmarks on outgoing messages for this user
             if (data.tg_user_id === activeUserId) {
                 document.querySelectorAll('.msg-row.outgoing').forEach(row => {
                     const msgId = parseInt(row.dataset.msgId);
@@ -580,36 +314,34 @@ function connectSSE() {
 }
 
 // Refresh read status from Telegram
-async function refreshReadStatus() {
+async function refreshReadStatus(silent) {
     const btn = document.getElementById('check-status-btn');
     btn.disabled = true;
-    btn.textContent = 'Checking...';
+    btn.classList.add('loading');
     try {
         const res = await fetch('/api/chats/check-status', { method: 'POST' });
         const data = await res.json();
         if (data.error) {
-            showToast(data.error, 'error');
+            if (!silent) showToast(data.error, 'error');
         } else {
-            showToast(`Updated ${data.updated} conversations`, 'success');
+            if (!silent && data.updated > 0) showToast(`Updated ${data.updated} conversations`, 'success');
         }
-        // Reload conversations to reflect new statuses
         await loadConversations();
-        // If a chat is open, reload its messages
         if (activeUserId) openChat(activeUserId);
     } catch (e) {
-        showToast('Failed to check status', 'error');
+        if (!silent) showToast('Failed to check status', 'error');
     } finally {
         btn.disabled = false;
-        btn.textContent = 'Refresh Status';
+        btn.classList.remove('loading');
     }
 }
 
-// Init — load conversations then auto-check read status
+// Init
 async function init() {
     await loadConversations();
     connectSSE();
-    // Auto-check read status on page load
-    refreshReadStatus();
+    refreshReadStatus(true);
+    refreshIcons();
 }
 init();
 </script>

@@ -5,161 +5,214 @@
     <h1>Send Messages</h1>
 </div>
 
-<div class="send-layout">
-    <!-- Left: Message Template -->
-    <div>
-        <div class="card">
-            <h3 style="margin-bottom:16px">Message Template</h3>
-
-            <div class="form-group">
-                <label>Select Template</label>
-                <select id="template-select" onchange="loadTemplate()">
-                    <option value="">-- Select or create new --</option>
-                </select>
+<div class="send-page">
+    <!-- STEP 1: Select Recipients (full width) -->
+    <div class="step active" id="step-1">
+        <div class="step-header">
+            <div class="step-number">1</div>
+            <div>
+                <div class="step-title">Recipients</div>
+                <div class="step-subtitle">Filter and select who receives the message</div>
             </div>
-
-            <div class="form-group">
-                <label>Template Name</label>
-                <input type="text" id="msg-name" placeholder="e.g. Promo v1">
-            </div>
-
-            <div class="form-group">
-                <label>Message Text</label>
-                <textarea id="msg-text" rows="8" placeholder="Hi {name}! {spin:Check this out|Take a look|Have a look}: {link}"></textarea>
-                <div class="var-buttons">
-                    <button class="var-btn" onclick="insertVar('{name}')">{name}</button>
-                    <button class="var-btn" onclick="insertVar('{token}')">{token}</button>
-                    <button class="var-btn" onclick="insertVar('{link}')">{link}</button>
-                    <button class="var-btn" onclick="insertVar('{spin:option1|option2|option3}')" title="Random variation per recipient">{spin:...}</button>
-                </div>
-                <div style="font-size:11px;color:var(--text-muted);margin-top:4px">
-                    Use <code style="background:var(--bg);padding:1px 4px;border-radius:3px">{spin:hello|hi|hey}</code> to randomize text per recipient.
-                </div>
-            </div>
-
-            <div style="display:flex;gap:8px">
-                <button class="btn btn-primary btn-sm" onclick="saveTemplate()">Save Template</button>
-                <button class="btn btn-outline btn-sm" onclick="previewTemplate()">Preview</button>
-                <button class="btn btn-danger btn-sm" onclick="deleteTemplate()">Delete</button>
-            </div>
-
-            <div id="preview-box" style="display:none;margin-top:16px;padding:12px;background:var(--bg);border-radius:var(--radius);white-space:pre-wrap;font-size:13px"></div>
         </div>
-
-        <!-- Speed Presets + Settings -->
         <div class="card">
-            <h3 style="margin-bottom:12px">Speed & Safety Settings</h3>
-
-            <div class="form-group">
-                <label>Preset</label>
-                <div style="display:flex;gap:8px;flex-wrap:wrap">
-                    <button class="btn btn-sm btn-danger" onclick="applyPreset('aggressive')">Aggressive</button>
-                    <button class="btn btn-sm btn-warning" onclick="applyPreset('normal')">Normal</button>
-                    <button class="btn btn-sm btn-success" onclick="applyPreset('safe')">Safe</button>
-                    <button class="btn btn-sm btn-info" onclick="applyPreset('super_safe')">Super Safe</button>
-                </div>
-            </div>
-
-            <div class="grid-2">
+            <!-- Filters row -->
+            <div class="recipients-filters">
                 <div class="form-group">
-                    <label>Min Delay (sec)</label>
-                    <input type="number" id="delay-min" value="30" min="1">
+                    <label>Filter</label>
+                    <select id="contact-filter" onchange="loadContactOptions()">
+                        <option value="on_telegram">On Telegram</option>
+                        <option value="pending">Pending (not sent)</option>
+                        <option value="all">All Contacts</option>
+                        <option value="failed">Previously Failed</option>
+                        <option value="peer_flood">Peer Flooded</option>
+                    </select>
                 </div>
                 <div class="form-group">
-                    <label>Max Delay (sec)</label>
-                    <input type="number" id="delay-max" value="60" min="1">
+                    <label>Last seen</label>
+                    <select id="last-seen-filter" onchange="loadContactOptions()">
+                        <option value="">Any</option>
+                        <option value="active">Active (online/recently)</option>
+                        <option value="online">Online</option>
+                        <option value="recently">Recently</option>
+                        <option value="last_week">Last Week</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="inactive">Inactive (month+)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Limit</label>
+                    <input type="number" id="send-limit" value="0" min="0" placeholder="0 = all">
+                </div>
+                <label class="filter-checkbox">
+                    <input type="checkbox" id="exclude-messaged" onchange="loadContactOptions()" checked>
+                    <span>Exclude already sent</span>
+                </label>
+            </div>
+
+            <!-- Summary + actions bar -->
+            <div class="contact-summary-bar">
+                <div class="flex items-center gap-3">
+                    <div class="contact-count" id="contact-count-num">0</div>
+                    <div class="text-sm text-muted">contacts selected</div>
+                </div>
+                <div class="flex gap-2 items-center">
+                    <input type="text" id="contact-search" placeholder="Search..." oninput="filterContactList()" class="input-sm" style="width:180px;flex-shrink:0">
+                    <button class="btn btn-sm btn-outline" onclick="selectAllContacts()">All</button>
+                    <button class="btn btn-sm btn-outline" onclick="deselectAllContacts()">None</button>
+                    <button class="btn btn-sm btn-ghost" id="toggle-list-btn" onclick="toggleContactList()">
+                        <i data-lucide="chevron-down" class="icon-base"></i>
+                    </button>
                 </div>
             </div>
-            <div class="form-group">
-                <label>Per-account limit (0 = daily limit only)</label>
-                <input type="number" id="per-account-limit" value="0" min="0">
-                <span style="font-size:11px;color:var(--text-muted)">Max messages per account this session. Daily limit always applies.</span>
-            </div>
-            <div class="form-group">
-                <label>Scan-to-Send Gap (minutes, 0 = no gap)</label>
-                <input type="number" id="scan-gap" value="240" min="0">
-                <span style="font-size:11px;color:var(--text-muted)">Skip contacts imported less than N minutes ago. Recommended: 240+ (4 hours).</span>
+
+            <div class="contact-list-container" id="contact-list-container">
+                <div id="contact-list" class="contact-list-wrap"></div>
             </div>
         </div>
     </div>
 
-    <!-- Right: Contact & Account Selection -->
-    <div>
-        <div class="card">
-            <h3 style="margin-bottom:16px">Select Accounts</h3>
-            <div id="account-list"><p style="color:var(--text-muted)">Loading...</p></div>
-        </div>
-
-        <div class="card">
-            <h3 style="margin-bottom:16px">Select Contacts</h3>
-            <div class="form-group">
-                <label>Send Status</label>
-                <select id="contact-filter" onchange="loadContactOptions()">
-                    <option value="on_telegram">On Telegram (importable)</option>
-                    <option value="pending">Pending (not sent yet)</option>
-                    <option value="all">All Contacts</option>
-                    <option value="failed">Previously Failed</option>
-                    <option value="peer_flood">Peer Flooded</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label>Last Seen</label>
-                <select id="last-seen-filter" onchange="loadContactOptions()">
-                    <option value="">Any</option>
-                    <option value="active">Active (online / recently)</option>
-                    <option value="online">Online</option>
-                    <option value="recently">Recently</option>
-                    <option value="last_week">Last Week</option>
-                    <option value="last_month">Last Month</option>
-                    <option value="inactive">Inactive (last month / long ago)</option>
-                    <option value="long_ago">Long Ago</option>
-                </select>
-            </div>
-            <label style="display:flex;align-items:center;gap:8px;padding:8px 0;font-size:13px;cursor:pointer">
-                <input type="checkbox" id="exclude-messaged" onchange="loadContactOptions()" checked>
-                Exclude already messaged contacts
-            </label>
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
-                <div id="contact-summary" style="font-size:13px;color:var(--text-muted)"></div>
-                <div style="display:flex;gap:8px">
-                    <button class="btn btn-sm btn-outline" onclick="selectAllContacts()">Select All</button>
-                    <button class="btn btn-sm btn-outline" onclick="deselectAllContacts()">Deselect All</button>
+    <!-- Middle row: Accounts + Template side by side -->
+    <div class="send-top-grid">
+        <!-- STEP 2: Select Accounts -->
+        <div class="step" id="step-2">
+            <div class="step-header">
+                <div class="step-number">2</div>
+                <div>
+                    <div class="step-title">Sending Accounts</div>
+                    <div class="step-subtitle">Click to toggle — <span id="acct-count" class="text-primary">0 selected</span></div>
                 </div>
             </div>
-            <div class="form-group">
-                <input type="text" id="contact-search" placeholder="Search by phone, name..." oninput="filterContactList()" style="font-size:13px;padding:6px 10px">
-            </div>
-            <div id="contact-list" style="max-height:340px;overflow-y:auto;border:1px solid var(--border);border-radius:var(--radius);padding:4px 0"></div>
-            <div id="contact-count" style="margin-bottom:12px"></div>
-            <div class="form-group">
-                <label>Limit (0 = all selected)</label>
-                <input type="number" id="send-limit" value="0" min="0">
+            <div class="card">
+                <div class="quick-bar">
+                    <button class="btn btn-sm btn-outline" onclick="selectAllAccounts()">Select All Connected</button>
+                    <button class="btn btn-sm btn-outline" onclick="deselectAllAccounts()">Deselect All</button>
+                </div>
+                <div id="acct-capacity" class="text-sm text-muted mb-3"></div>
+                <div class="account-chips" id="account-chips">
+                    <span class="text-sm text-muted">Loading...</span>
+                </div>
             </div>
         </div>
 
-        <button class="btn btn-primary" id="start-send-btn" onclick="startSend()" style="width:100%">
-            Start Sending
-        </button>
-
-        <!-- Progress Section -->
-        <div id="progress-section" style="display:none;margin-top:16px">
+        <!-- STEP 3: Select Template -->
+        <div class="step" id="step-3">
+            <div class="step-header">
+                <div class="step-number">3</div>
+                <div>
+                    <div class="step-title">Message Template</div>
+                    <div class="step-subtitle">Choose or create a message to send</div>
+                </div>
+            </div>
             <div class="card">
-                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-                    <h3>Progress</h3>
-                    <div style="display:flex;gap:8px">
-                        <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopSend()">Stop</button>
-                        <button class="btn btn-outline btn-sm" id="clear-btn" onclick="clearJob()" style="display:none">Clear</button>
+                <div class="form-group">
+                    <label>Template</label>
+                    <select id="template-select" onchange="loadTemplate()">
+                        <option value="">-- Select or create new --</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Template name</label>
+                    <input type="text" id="msg-name" placeholder="e.g. Promo v1">
+                </div>
+
+                <div class="form-group">
+                    <label>Message text</label>
+                    <textarea id="msg-text" rows="5" placeholder="Hi {name}! {spin:Check this out|Take a look}: {link}"></textarea>
+                    <div class="var-buttons">
+                        <button class="var-btn" onclick="insertVar('{name}')">{name}</button>
+                        <button class="var-btn" onclick="insertVar('{token}')">{token}</button>
+                        <button class="var-btn" onclick="insertVar('{link}')">{link}</button>
+                        <button class="var-btn" onclick="insertVar('{spin:opt1|opt2|opt3}')">{spin:...}</button>
+                    </div>
+                    <div class="form-hint mt-2">
+                        <code style="background:var(--bg);padding:2px 6px;border-radius:4px;font-size:11px">{spin:hello|hi|hey}</code> randomizes per recipient
                     </div>
                 </div>
-                <div style="display:flex;gap:16px;margin-bottom:8px;font-size:13px">
-                    <span>Sent: <strong id="prog-sent" style="color:var(--success)">0</strong></span>
-                    <span>Failed: <strong id="prog-failed" style="color:var(--danger)">0</strong></span>
-                    <span>Flood: <strong id="prog-flood" style="color:var(--warning)">0</strong></span>
+
+                <div class="flex gap-2">
+                    <button class="btn btn-primary btn-sm" onclick="saveTemplate()">Save Template</button>
+                    <button class="btn btn-outline btn-sm" onclick="previewTemplate()">Preview</button>
+                    <button class="btn btn-outline btn-sm" onclick="deleteTemplate()">Delete</button>
                 </div>
-                <div class="progress-bar"><div class="fill" id="prog-bar" style="width:0%"></div></div>
-                <div id="prog-label" style="font-size:12px;color:var(--text-muted);margin-bottom:8px">0 / 0</div>
-                <div class="progress-log" id="prog-log"></div>
+                <div id="preview-box" class="hidden mt-3 preview-box"></div>
             </div>
+        </div>
+    </div>
+
+    <!-- Bottom row: Speed + Send -->
+    <div class="send-top-grid mt-1">
+        <!-- STEP 4: Speed Settings -->
+        <div class="step" id="step-4">
+            <div class="step-header" onclick="toggleSettings()" style="cursor:pointer">
+                <div class="step-number">
+                    <i data-lucide="sliders-horizontal" class="icon-base"></i>
+                </div>
+                <div class="flex-1">
+                    <div class="step-title">Speed & Safety</div>
+                    <div class="step-subtitle">Preset: <strong id="current-preset-label" class="text-primary">Safe</strong> — click to customize</div>
+                </div>
+                <i data-lucide="chevron-down" id="settings-chevron" class="icon-md" style="color:var(--text-tertiary);transition:transform 0.2s"></i>
+            </div>
+            <div class="card hidden" id="settings-panel">
+                <div class="form-group">
+                    <label>Preset</label>
+                    <div class="preset-group" id="preset-group">
+                        <button class="preset-btn" onclick="applyPreset('aggressive')" data-preset="aggressive">Aggressive</button>
+                        <button class="preset-btn" onclick="applyPreset('normal')" data-preset="normal">Normal</button>
+                        <button class="preset-btn active" onclick="applyPreset('safe')" data-preset="safe">Safe</button>
+                        <button class="preset-btn" onclick="applyPreset('super_safe')" data-preset="super_safe">Super Safe</button>
+                    </div>
+                </div>
+                <div class="settings-compact">
+                    <div class="form-group">
+                        <label>Min delay (sec)</label>
+                        <input type="number" id="delay-min" value="60" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Max delay (sec)</label>
+                        <input type="number" id="delay-max" value="120" min="1">
+                    </div>
+                    <div class="form-group">
+                        <label>Per-acct limit (0 = daily)</label>
+                        <input type="number" id="per-account-limit" value="0" min="0">
+                    </div>
+                    <div class="form-group">
+                        <label>Scan gap (min)</label>
+                        <input type="number" id="scan-gap" value="240" min="0">
+                    </div>
+                </div>
+                <div class="form-hint mt-2">Scan gap: skip contacts imported less than N minutes ago. Recommended: 240+ (4 hours).</div>
+            </div>
+        </div>
+
+        <!-- SEND BUTTON -->
+        <div class="send-sticky">
+            <button class="btn btn-primary btn-lg w-full" id="start-send-btn" onclick="startSend()">
+                <i data-lucide="send" class="icon-md"></i> Start Sending
+            </button>
+            <div class="text-sm text-muted mt-2 text-center" id="send-summary"></div>
+        </div>
+    </div>
+
+    <!-- Progress Section -->
+    <div id="progress-section" class="hidden mt-4">
+        <div class="card">
+            <div class="flex justify-between items-center mb-2">
+                <h3>Sending Progress</h3>
+                <div class="flex gap-2">
+                    <button class="btn btn-danger btn-sm" id="stop-btn" onclick="stopSend()">Stop</button>
+                    <button class="btn btn-outline btn-sm hidden" id="clear-btn" onclick="clearJob()">Clear</button>
+                </div>
+            </div>
+            <div class="progress-stats">
+                <span>Sent: <strong class="text-success" id="prog-sent">0</strong></span>
+                <span>Failed: <strong class="text-danger" id="prog-failed">0</strong></span>
+                <span>Flood: <strong class="text-warning" id="prog-flood">0</strong></span>
+            </div>
+            <div class="progress-bar"><div class="fill" id="prog-bar" style="width:0%"></div></div>
+            <div id="prog-label" class="text-sm text-muted mb-2">0 / 0</div>
+            <div class="progress-log" id="prog-log"></div>
         </div>
     </div>
 </div>
@@ -172,14 +225,31 @@ let allContacts = [];
 let contactIds = [];
 let currentJobId = null;
 let eventSource = null;
+let selectedAccountIds = new Set();
+let contactListCollapsed = true;
 
-// Speed presets (with scan gap)
+// Speed presets
 const PRESETS = {
-    aggressive: { delayMin: 5,   delayMax: 15,  limit: 0,  scanGap: 0,   label: 'Aggressive — fast, high flood risk' },
-    normal:     { delayMin: 30,  delayMax: 60,  limit: 0,  scanGap: 120, label: 'Normal — balanced speed, 2h scan gap' },
-    safe:       { delayMin: 60,  delayMax: 120, limit: 0,  scanGap: 240, label: 'Safe — slower, 4h scan gap' },
-    super_safe: { delayMin: 120, delayMax: 300, limit: 0,  scanGap: 480, label: 'Super Safe — very slow, 8h scan gap' }
+    aggressive: { delayMin: 5,   delayMax: 15,  limit: 0,  scanGap: 0,   label: 'Aggressive' },
+    normal:     { delayMin: 30,  delayMax: 60,  limit: 0,  scanGap: 120, label: 'Normal' },
+    safe:       { delayMin: 60,  delayMax: 120, limit: 0,  scanGap: 240, label: 'Safe' },
+    super_safe: { delayMin: 120, delayMax: 300, limit: 0,  scanGap: 480, label: 'Super Safe' }
 };
+
+function toggleSettings() {
+    const panel = document.getElementById('settings-panel');
+    const chevron = document.getElementById('settings-chevron');
+    panel.classList.toggle('hidden');
+    chevron.style.transform = panel.classList.contains('hidden') ? '' : 'rotate(180deg)';
+}
+
+function toggleContactList() {
+    const container = document.getElementById('contact-list-container');
+    contactListCollapsed = !contactListCollapsed;
+    container.classList.toggle('collapsed', contactListCollapsed);
+    const btn = document.getElementById('toggle-list-btn');
+    btn.querySelector('i').style.transform = contactListCollapsed ? '' : 'rotate(180deg)';
+}
 
 function applyPreset(name) {
     const p = PRESETS[name];
@@ -188,7 +258,10 @@ function applyPreset(name) {
     document.getElementById('delay-max').value = p.delayMax;
     document.getElementById('per-account-limit').value = p.limit;
     document.getElementById('scan-gap').value = p.scanGap;
-    toast(p.label, 'info');
+    document.getElementById('current-preset-label').textContent = p.label;
+    document.querySelectorAll('.preset-btn').forEach(b => b.classList.remove('active'));
+    const btn = document.querySelector(`.preset-btn[data-preset="${name}"]`);
+    if (btn) btn.classList.add('active');
 }
 
 function insertVar(v) {
@@ -199,6 +272,7 @@ function insertVar(v) {
     ta.setSelectionRange(start + v.length, start + v.length);
 }
 
+// === Templates ===
 async function loadTemplates() {
     try {
         templates = await api('/api/messages');
@@ -215,6 +289,7 @@ function loadTemplate() {
         document.getElementById('msg-name').value = t.name;
         document.getElementById('msg-text').value = t.template_text;
     }
+    updateSteps();
 }
 
 async function saveTemplate() {
@@ -222,7 +297,6 @@ async function saveTemplate() {
     const name = document.getElementById('msg-name').value.trim();
     const text = document.getElementById('msg-text').value.trim();
     if (!name || !text) { toast('Name and text are required', 'error'); return; }
-
     try {
         if (id) {
             await api(`/api/messages/${id}`, { method: 'PUT', body: { name, template_text: text } });
@@ -255,35 +329,96 @@ async function previewTemplate() {
         const data = await api(`/api/messages/${id}/preview`, { method: 'POST' });
         const box = document.getElementById('preview-box');
         box.textContent = data.preview;
-        box.style.display = 'block';
+        box.classList.remove('hidden');
     } catch (e) { toast(e.message, 'error'); }
 }
 
+// === Accounts ===
 async function loadAccounts() {
     try {
         const accounts = await api('/api/accounts');
-        const div = document.getElementById('account-list');
+        const container = document.getElementById('account-chips');
+
         if (accounts.length === 0) {
-            div.innerHTML = '<p style="color:var(--text-muted)">No accounts. <a href="/accounts" style="color:var(--primary)">Add one</a></p>';
+            container.innerHTML = '<span class="text-sm text-muted">No accounts. <a href="/accounts" class="text-primary">Add one</a></span>';
             return;
         }
-        div.innerHTML = accounts.map(a => {
-            const capLabel = a.is_connected
-                ? `<span style="font-size:11px;color:var(--text-muted)">(${a.remaining_today}/${a.effective_limit} left today)</span>`
-                : '';
-            const warmupLabel = (!a.warmup_done && a.warmup_day !== null)
-                ? `<span style="font-size:10px;color:var(--warning);margin-left:4px">warmup day ${a.warmup_day + 1}/4</span>`
-                : '';
-            return `<label style="display:flex;align-items:center;gap:8px;padding:6px 0;font-size:14px">
-                <input type="checkbox" class="account-cb" value="${a.id}" ${a.is_connected && !a.is_flood_limited ? 'checked' : ''} ${!a.is_connected ? 'disabled' : ''}>
-                ${escapeHtml(a.phone)}
-                ${capLabel}${warmupLabel}
-                <span class="status-dot ${a.is_connected ? (a.is_flood_limited ? 'flood' : 'connected') : 'disconnected'}" style="margin-left:auto"></span>
-            </label>`;
+
+        container.innerHTML = accounts.map(a => {
+            const isGood = a.is_connected && !a.is_flood_limited;
+            const dotClass = !a.is_connected ? 'off' : a.is_flood_limited ? 'flood' : 'ok';
+            const disabledClass = !a.is_connected ? ' disabled' : '';
+            const selectedClass = isGood && selectedAccountIds.has(a.id) ? ' selected' : '';
+
+            let meta = '';
+            if (a.is_connected) {
+                meta = `${a.remaining_today}/${a.effective_limit} left`;
+                if (!a.warmup_done && a.warmup_day !== null) meta += ` · warmup ${a.warmup_day+1}/4`;
+            } else {
+                meta = 'offline';
+            }
+            if (a.is_flood_limited) meta = 'flood limited';
+
+            // Auto-select connected non-flooded on first load
+            if (isGood && !window._accountsLoaded) selectedAccountIds.add(a.id);
+
+            return `<div class="account-chip${selectedClass}${disabledClass}" data-id="${a.id}" onclick="toggleAccount(${a.id}, ${a.is_connected && !a.is_flood_limited})">
+                <span class="chip-dot ${dotClass}"></span>
+                <span>${escapeHtml(a.phone)}</span>
+                <span class="chip-meta">${meta}</span>
+            </div>`;
         }).join('');
+
+        window._accountsLoaded = true;
+        updateAccountCount(accounts);
     } catch (e) { toast(e.message, 'error'); }
 }
 
+function toggleAccount(id, canSelect) {
+    if (!canSelect) return;
+    if (selectedAccountIds.has(id)) {
+        selectedAccountIds.delete(id);
+    } else {
+        selectedAccountIds.add(id);
+    }
+    document.querySelectorAll('.account-chip').forEach(chip => {
+        const chipId = parseInt(chip.dataset.id);
+        chip.classList.toggle('selected', selectedAccountIds.has(chipId));
+    });
+    updateAccountCount();
+    updateSteps();
+}
+
+function selectAllAccounts() {
+    document.querySelectorAll('.account-chip:not(.disabled)').forEach(chip => {
+        const id = parseInt(chip.dataset.id);
+        selectedAccountIds.add(id);
+        chip.classList.add('selected');
+    });
+    updateAccountCount();
+    updateSteps();
+}
+
+function deselectAllAccounts() {
+    selectedAccountIds.clear();
+    document.querySelectorAll('.account-chip').forEach(chip => chip.classList.remove('selected'));
+    updateAccountCount();
+    updateSteps();
+}
+
+function updateAccountCount(accounts) {
+    const count = selectedAccountIds.size;
+    document.getElementById('acct-count').textContent = `${count} selected`;
+
+    let totalCap = 0;
+    document.querySelectorAll('.account-chip.selected .chip-meta').forEach(el => {
+        const match = el.textContent.match(/(\d+)\/\d+ left/);
+        if (match) totalCap += parseInt(match[1]);
+    });
+    document.getElementById('acct-capacity').textContent = totalCap > 0 ? `~${totalCap} messages capacity today` : '';
+}
+
+// === Recipients ===
 async function loadContactOptions() {
     const filter = document.getElementById('contact-filter').value;
     const lastSeen = document.getElementById('last-seen-filter').value;
@@ -304,6 +439,7 @@ async function loadContactOptions() {
         contactIds = allContacts.map(c => c.id);
         renderContactList();
         updateContactSummary();
+        updateSteps();
     } catch (e) { toast(e.message, 'error'); }
 }
 
@@ -321,70 +457,98 @@ function renderContactList() {
         : allContacts;
 
     if (filtered.length === 0) {
-        listEl.innerHTML = '<p style="padding:12px;color:var(--text-muted);font-size:13px;text-align:center">No contacts match</p>';
+        listEl.innerHTML = '<div class="empty-state"><p>No contacts match</p></div>';
         return;
     }
 
     listEl.innerHTML = filtered.map(c => {
         const checked = contactIds.includes(c.id) ? 'checked' : '';
         const name = c.name || c.tg_name || '';
-        const username = c.tg_username ? `@${c.tg_username}` : '';
         const tgBadge = c.telegram_status === 'on_telegram'
-            ? '<span class="badge badge-success" style="font-size:10px;padding:1px 5px">TG</span>'
+            ? '<span class="badge badge-success badge-sm">TG</span>'
             : c.telegram_status === 'not_found'
-                ? '<span class="badge badge-danger" style="font-size:10px;padding:1px 5px">N/F</span>'
+                ? '<span class="badge badge-danger badge-sm">N/F</span>'
                 : '';
         const sendBadge = c.last_send_status === 'sent'
-            ? '<span class="badge badge-success" style="font-size:10px;padding:1px 5px">Sent</span>'
+            ? '<span class="badge badge-success badge-sm">Sent</span>'
             : c.last_send_status === 'failed'
-                ? '<span class="badge badge-danger" style="font-size:10px;padding:1px 5px">Failed</span>'
+                ? '<span class="badge badge-danger badge-sm">Failed</span>'
                 : '';
-        return `<label style="display:flex;align-items:center;gap:8px;padding:5px 10px;font-size:13px;cursor:pointer;border-bottom:1px solid var(--border)" title="${escapeHtml(username)}">
+        return `<label class="contact-list-item">
             <input type="checkbox" class="contact-cb" value="${c.id}" ${checked} onchange="toggleContact(${c.id}, this.checked)">
-            <span style="min-width:130px">${escapeHtml(c.phone)}</span>
-            <span style="flex:1;color:var(--text-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escapeHtml(name)}</span>
+            <span class="phone">${escapeHtml(c.phone)}</span>
+            <span class="name">${escapeHtml(name)}</span>
             ${tgBadge} ${sendBadge}
         </label>`;
     }).join('');
 }
 
 function toggleContact(id, checked) {
-    if (checked && !contactIds.includes(id)) {
-        contactIds.push(id);
-    } else if (!checked) {
-        contactIds = contactIds.filter(x => x !== id);
-    }
+    if (checked && !contactIds.includes(id)) contactIds.push(id);
+    else if (!checked) contactIds = contactIds.filter(x => x !== id);
     updateContactSummary();
+    updateSteps();
 }
 
 function selectAllContacts() {
     contactIds = allContacts.map(c => c.id);
     document.querySelectorAll('.contact-cb').forEach(cb => cb.checked = true);
     updateContactSummary();
+    updateSteps();
 }
 
 function deselectAllContacts() {
     contactIds = [];
     document.querySelectorAll('.contact-cb').forEach(cb => cb.checked = false);
     updateContactSummary();
+    updateSteps();
 }
 
-function filterContactList() {
-    renderContactList();
-}
+function filterContactList() { renderContactList(); }
 
 function updateContactSummary() {
-    document.getElementById('contact-summary').textContent =
-        `${contactIds.length} of ${allContacts.length} selected`;
+    document.getElementById('contact-count-num').textContent = contactIds.length;
 }
 
+// === Step indicators ===
+function updateSteps() {
+    const hasContacts = contactIds.length > 0;
+    const hasAccounts = selectedAccountIds.size > 0;
+    const hasTemplate = !!document.getElementById('template-select').value;
+
+    setStepState('step-1', hasContacts ? 'done' : 'active');
+    setStepState('step-2', hasContacts ? (hasAccounts ? 'done' : 'active') : '');
+    setStepState('step-3', hasAccounts ? (hasTemplate ? 'done' : 'active') : '');
+
+    const ready = hasTemplate && hasAccounts && hasContacts;
+    const btn = document.getElementById('start-send-btn');
+    btn.disabled = !ready;
+
+    const summary = document.getElementById('send-summary');
+    if (ready) {
+        summary.textContent = `${contactIds.length} contacts → ${selectedAccountIds.size} accounts`;
+    } else {
+        const missing = [];
+        if (!hasContacts) missing.push('recipients');
+        if (!hasAccounts) missing.push('accounts');
+        if (!hasTemplate) missing.push('template');
+        summary.textContent = `Select ${missing.join(', ')} to start`;
+    }
+}
+
+function setStepState(id, state) {
+    const el = document.getElementById(id);
+    el.classList.remove('active', 'done');
+    if (state) el.classList.add(state);
+}
+
+// === Sending ===
 async function startSend() {
     const msgId = parseInt(document.getElementById('template-select').value);
     if (!msgId) { toast('Select a message template', 'error'); return; }
 
-    const accountIds = Array.from(document.querySelectorAll('.account-cb:checked')).map(cb => parseInt(cb.value));
+    const accountIds = Array.from(selectedAccountIds);
     if (accountIds.length === 0) { toast('Select at least one account', 'error'); return; }
-
     if (contactIds.length === 0) { toast('No contacts selected', 'error'); return; }
 
     const limit = parseInt(document.getElementById('send-limit').value) || 0;
@@ -398,13 +562,9 @@ async function startSend() {
         const result = await api('/api/send/start', {
             method: 'POST',
             body: {
-                contact_ids: ids,
-                message_id: msgId,
-                account_ids: accountIds,
-                delay_min: delayMin,
-                delay_max: delayMax,
-                per_account_limit: perAccountLimit,
-                scan_gap_minutes: scanGap
+                contact_ids: ids, message_id: msgId, account_ids: accountIds,
+                delay_min: delayMin, delay_max: delayMax,
+                per_account_limit: perAccountLimit, scan_gap_minutes: scanGap
             }
         });
 
@@ -415,15 +575,16 @@ async function startSend() {
 }
 
 function showProgress(running) {
-    document.getElementById('progress-section').style.display = 'block';
+    document.getElementById('progress-section').classList.remove('hidden');
     document.getElementById('start-send-btn').disabled = running;
     document.getElementById('stop-btn').style.display = running ? '' : 'none';
-    document.getElementById('clear-btn').style.display = running ? 'none' : '';
+    const clearBtn = document.getElementById('clear-btn');
+    if (running) clearBtn.classList.add('hidden');
+    else clearBtn.classList.remove('hidden');
 }
 
 function startProgressStream(jobId) {
     let sent = 0, failed = 0, flood = 0;
-
     if (eventSource) eventSource.close();
     eventSource = new EventSource(`/api/send/progress/${jobId}`);
 
@@ -431,27 +592,23 @@ function startProgressStream(jobId) {
         const data = JSON.parse(event.data);
 
         if (data.done) {
-            eventSource.close();
-            eventSource = null;
+            eventSource.close(); eventSource = null;
             showProgress(false);
             toast('Send job complete', 'success');
-            loadAccounts(); // Refresh capacity
+            loadAccounts();
             return;
         }
         if (data.error) {
-            eventSource.close();
-            eventSource = null;
+            eventSource.close(); eventSource = null;
             showProgress(false);
             toast(data.error, 'error');
             return;
         }
-
-        // Info messages (scan gap skips, daily limits, breaks)
         if (data.status === 'info') {
             const log = document.getElementById('prog-log');
             const entry = document.createElement('div');
             entry.className = 'entry';
-            entry.style.color = 'var(--text-muted)';
+            entry.classList.add('text-muted');
             entry.style.fontStyle = 'italic';
             entry.textContent = data.message;
             log.appendChild(entry);
@@ -477,24 +634,21 @@ function startProgressStream(jobId) {
         const entry = document.createElement('div');
         entry.className = `entry ${data.status}`;
         const acct = data.account ? ` [${data.account}]` : '';
-        entry.textContent = `[${data.current || '?'}/${data.total || '?'}]${acct} ${data.phone || ''} — ${data.status} ${data.message || ''}`;
+        entry.textContent = `[${data.current||'?'}/${data.total||'?'}]${acct} ${data.phone||''} — ${data.status} ${data.message||''}`;
         log.appendChild(entry);
         log.scrollTop = log.scrollHeight;
     };
 
     eventSource.onerror = function() {
-        eventSource.close();
-        eventSource = null;
+        eventSource.close(); eventSource = null;
         setTimeout(checkAndReconnect, 2000);
     };
 }
 
 async function stopSend() {
     if (!currentJobId) return;
-    try {
-        await api(`/api/send/stop/${currentJobId}`, { method: 'POST' });
-        toast('Stopping...', 'info');
-    } catch (e) { toast(e.message, 'error'); }
+    try { await api(`/api/send/stop/${currentJobId}`, { method: 'POST' }); toast('Stopping...', 'info'); }
+    catch (e) { toast(e.message, 'error'); }
 }
 
 async function clearJob() {
@@ -502,7 +656,7 @@ async function clearJob() {
     try {
         await api(`/api/send/clear/${currentJobId}`, { method: 'POST' });
         currentJobId = null;
-        document.getElementById('progress-section').style.display = 'none';
+        document.getElementById('progress-section').classList.add('hidden');
         document.getElementById('start-send-btn').disabled = false;
         document.getElementById('prog-log').innerHTML = '';
         document.getElementById('prog-sent').textContent = '0';
@@ -525,9 +679,14 @@ async function checkAndReconnect() {
     } catch (e) {}
 }
 
+// Init — start with contact list collapsed
+document.getElementById('contact-list-container').classList.add('collapsed');
+
 loadTemplates();
 loadAccounts();
 loadContactOptions();
 checkAndReconnect();
+updateSteps();
+refreshIcons();
 </script>
 {% endblock %}

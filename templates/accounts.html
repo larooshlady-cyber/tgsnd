@@ -3,43 +3,50 @@
 {% block content %}
 <div class="page-header">
     <h1>Telegram Accounts</h1>
-    <div style="display:flex;gap:8px">
-        <label class="btn btn-info btn-sm" style="cursor:pointer;background:var(--info)">
-            Import tdata ZIP
-            <input type="file" accept=".zip" onchange="importTdata(this)" style="display:none">
+    <div class="flex gap-2">
+        <label class="btn btn-info btn-sm" title="Upload a .zip containing tdata folders">
+            <i data-lucide="archive" class="icon-sm"></i> Import tdata
+            <input type="file" accept=".zip" onchange="importTdata(this)" class="hidden">
         </label>
-        <label class="btn btn-outline btn-sm" style="cursor:pointer">
-            Bulk Import CSV
-            <input type="file" accept=".csv" onchange="bulkUploadAccounts(this)" style="display:none">
+        <label class="btn btn-outline btn-sm" title="CSV with columns: phone, api_id, api_hash">
+            <i data-lucide="file-up" class="icon-sm"></i> Bulk CSV
+            <input type="file" accept=".csv" onchange="bulkUploadAccounts(this)" class="hidden">
         </label>
-        <button class="btn btn-success btn-sm" onclick="connectAll()">Connect All</button>
-        <button class="btn btn-primary" onclick="showAddModal()">+ Add Account</button>
+        <button class="btn btn-success btn-sm" onclick="connectAll()">
+            <i data-lucide="plug" class="icon-sm"></i> Connect All
+        </button>
+        <button class="btn btn-primary" onclick="showAddModal()">
+            <i data-lucide="plus" class="icon-sm"></i> Add Account
+        </button>
     </div>
 </div>
 
 <!-- Bulk upload info -->
-<div class="card" id="bulk-info" style="display:none;margin-bottom:16px">
+<div class="card hidden" id="bulk-info">
     <div id="bulk-result"></div>
 </div>
 
 <!-- Connect All progress -->
-<div class="card" id="connect-all-progress" style="display:none;margin-bottom:16px">
-    <h3 style="margin-bottom:12px">Connecting Accounts...</h3>
+<div class="card hidden" id="connect-all-progress">
+    <h3 class="mb-3">Connecting accounts...</h3>
     <div class="progress-log" id="connect-log" style="max-height:200px"></div>
 </div>
 
-<div id="accounts-summary" style="margin-bottom:16px;font-size:13px;color:var(--text-muted)"></div>
+<div id="accounts-summary" class="mb-4 text-sm text-muted"></div>
 
 <div class="accounts-grid" id="accounts-grid">
-    <p style="color: var(--text-muted)">Loading...</p>
+    <div class="empty-state"><p>Loading...</p></div>
 </div>
 
 <!-- Add Account Modal -->
 <div class="modal-overlay" id="add-modal">
     <div class="modal">
-        <h3>Add Telegram Account</h3>
+        <div class="flex justify-between items-center mb-4">
+            <h3>Add Telegram Account</h3>
+            <button class="modal-close" onclick="closeModal('add-modal')">&times;</button>
+        </div>
         <div class="form-group">
-            <label>Phone Number</label>
+            <label>Phone number</label>
             <input type="text" id="add-phone" placeholder="+1234567890">
         </div>
         <div class="form-group">
@@ -47,7 +54,7 @@
             <input type="number" id="add-api-id" placeholder="12345678">
         </div>
         <div class="form-group">
-            <label>API Hash</label>
+            <label>API hash</label>
             <input type="text" id="add-api-hash" placeholder="abc123...">
         </div>
         <div class="modal-actions">
@@ -60,14 +67,17 @@
 <!-- Verify Code Modal -->
 <div class="modal-overlay" id="verify-modal">
     <div class="modal">
-        <h3>Enter Verification Code</h3>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:12px">Telegram sent a code to your app/SMS. Enter it below.</p>
+        <div class="flex justify-between items-center mb-4">
+            <h3>Enter Verification Code</h3>
+            <button class="modal-close" onclick="closeModal('verify-modal')">&times;</button>
+        </div>
+        <p class="text-sm text-muted mb-4">Telegram sent a code to your app/SMS. Enter it below.</p>
         <div class="form-group">
             <label>Code</label>
             <input type="text" id="verify-code" placeholder="12345">
         </div>
         <div class="form-group">
-            <label>2FA Password (optional)</label>
+            <label>2FA password (optional)</label>
             <input type="password" id="verify-password" placeholder="If 2FA is enabled">
         </div>
         <input type="hidden" id="verify-account-id">
@@ -92,12 +102,12 @@ async function importTdata(input) {
     try {
         const data = await api('/api/accounts/import-tdata', { method: 'POST', body: form });
         const infoDiv = document.getElementById('bulk-info');
-        infoDiv.style.display = 'block';
+        infoDiv.classList.remove('hidden');
 
         let html = `<strong>tdata Import: ${data.imported} of ${data.total} imported</strong><br>`;
         data.results.forEach(r => {
-            const color = r.status === 'imported' ? 'var(--success)' : r.status === 'skipped' ? 'var(--text-muted)' : 'var(--danger)';
-            html += `<div style="font-size:13px;color:${color}">${r.phone} — ${r.status}${r.display_name ? ' (' + r.display_name + ')' : ''}${r.error ? ': ' + r.error : ''}</div>`;
+            const cls = r.status === 'imported' ? 'text-success' : r.status === 'skipped' ? 'text-muted' : 'text-danger';
+            html += `<div class="text-sm ${cls}">${r.phone} — ${r.status}${r.display_name ? ' (' + r.display_name + ')' : ''}${r.error ? ': ' + r.error : ''}</div>`;
         });
         document.getElementById('bulk-result').innerHTML = html;
         toast(`Imported ${data.imported} accounts from tdata`, 'success');
@@ -114,10 +124,10 @@ async function bulkUploadAccounts(input) {
     try {
         const stats = await api('/api/accounts/bulk-upload', { method: 'POST', body: form });
         const infoDiv = document.getElementById('bulk-info');
-        infoDiv.style.display = 'block';
-        let html = `<span style="color:var(--success)">Created: ${stats.created}</span> &nbsp; <span style="color:var(--text-muted)">Skipped: ${stats.skipped}</span>`;
+        infoDiv.classList.remove('hidden');
+        let html = `<span class="text-success">Created: ${stats.created}</span> &nbsp; <span class="text-muted">Skipped: ${stats.skipped}</span>`;
         if (stats.errors.length > 0) {
-            html += `<br><span style="color:var(--danger);font-size:12px">${stats.errors.join(', ')}</span>`;
+            html += `<br><span class="text-sm text-danger">${stats.errors.join(', ')}</span>`;
         }
         document.getElementById('bulk-result').innerHTML = html;
         toast(`Imported ${stats.created} accounts`, 'success');
@@ -129,8 +139,8 @@ async function bulkUploadAccounts(input) {
 async function connectAll() {
     const progressDiv = document.getElementById('connect-all-progress');
     const logDiv = document.getElementById('connect-log');
-    progressDiv.style.display = 'block';
-    logDiv.innerHTML = '<div style="color:var(--text-muted)">Connecting accounts one by one...</div>';
+    progressDiv.classList.remove('hidden');
+    logDiv.innerHTML = '<div class="text-muted">Connecting accounts one by one...</div>';
 
     try {
         const results = await api('/api/accounts/connect-all', { method: 'POST' });
@@ -141,14 +151,14 @@ async function connectAll() {
             const entry = document.createElement('div');
             entry.className = 'entry';
             if (r.status === 'connected' || r.status === 'already_connected') {
-                entry.style.color = 'var(--success)';
+                entry.className += ' sent';
                 entry.textContent = `${r.phone} — ${r.status === 'already_connected' ? 'Already connected' : 'Connected'}`;
             } else if (r.status === 'code_required') {
-                entry.style.color = 'var(--warning)';
+                entry.className += ' peer_flood';
                 entry.textContent = `${r.phone} — Needs verification code`;
                 needVerify.push(r.phone);
             } else {
-                entry.style.color = 'var(--danger)';
+                entry.className += ' failed';
                 entry.textContent = `${r.phone} — Error: ${r.error || r.status}`;
             }
             logDiv.appendChild(entry);
@@ -175,11 +185,18 @@ async function loadAccounts() {
             `${total} accounts total — ${connected} connected — ${flood} flood limited`;
 
         if (accounts.length === 0) {
-            grid.innerHTML = '<p style="color:var(--text-muted)">No accounts yet. Add one or bulk import a CSV.</p>';
+            grid.innerHTML = '<div class="empty-state"><i data-lucide="shield-off"></i><p>No accounts yet. Add one or bulk import a CSV.</p></div>';
+            refreshIcons();
             return;
         }
 
         grid.innerHTML = accounts.map(a => {
+            // Health state class
+            let healthClass = 'account-offline';
+            if (a.is_connected) {
+                healthClass = a.is_flood_limited ? 'account-flood' : 'account-ok';
+            }
+
             // Status line
             let statusHtml;
             if (a.is_connected) {
@@ -187,55 +204,69 @@ async function loadAccounts() {
                     const floodInfo = a.flood_count_week > 1
                         ? ` (flood #${a.flood_count_week} this week)`
                         : '';
-                    statusHtml = `<span style="color:var(--warning)">Flood Limited${a.flood_until ? ' until ' + a.flood_until : ''}${floodInfo}</span>`;
+                    statusHtml = `<span class="text-warning">Flood limited${a.flood_until ? ' until ' + a.flood_until : ''}${floodInfo}</span>`;
                 } else {
-                    statusHtml = '<span style="color:var(--success)">Connected</span>';
+                    statusHtml = '<span class="text-success">Connected</span>';
                 }
             } else {
-                statusHtml = '<span style="color:var(--danger)">Disconnected</span>';
+                statusHtml = '<span class="text-danger">Disconnected</span>';
             }
-
-            // Daily capacity
-            const capHtml = `<div>Daily: <strong>${a.remaining_today}</strong> / ${a.effective_limit} remaining today</div>`;
 
             // Warmup
             let warmupHtml = '';
             if (a.warmup_day !== null && !a.warmup_done) {
-                warmupHtml = `<div style="color:var(--warning)">Warmup: Day ${a.warmup_day + 1} of 4 (limit: ${a.effective_limit}/day)</div>`;
+                const pct = Math.min(((a.warmup_day + 1) / 4) * 100, 100);
+                warmupHtml = `<div class="account-alert">
+                    <i data-lucide="flame" class="icon-sm shrink-0"></i>
+                    Warmup day ${a.warmup_day + 1}/4 (limit: ${a.effective_limit}/day)
+                </div>
+                <div class="warmup-bar"><div class="fill" style="width:${pct}%"></div></div>`;
             }
 
-            // Daily limit editor
-            const limitHtml = `<div style="display:flex;align-items:center;gap:6px;margin-top:4px">
-                <span style="font-size:12px;color:var(--text-muted)">Daily limit:</span>
-                <input type="number" value="${a.daily_limit}" min="1" max="100" style="width:60px;font-size:12px;padding:2px 6px"
-                    onchange="setDailyLimit(${a.id}, this.value)">
-            </div>`;
+            // Flood alert
+            let floodAlert = '';
+            if (a.is_flood_limited) {
+                floodAlert = `<div class="account-alert">
+                    <i data-lucide="alert-triangle" class="icon-sm shrink-0"></i>
+                    Flood limited${a.flood_until ? ' until ' + a.flood_until : ''}
+                </div>`;
+            }
 
-            return `<div class="account-card">
+            return `<div class="account-card ${healthClass}">
                 <div class="header">
                     <span class="phone">${escapeHtml(a.phone)}</span>
                     <span class="status-dot ${a.is_connected ? (a.is_flood_limited ? 'flood' : 'connected') : 'disconnected'}"></span>
                 </div>
                 <div class="meta">
-                    ${a.display_name ? `<div>Name: ${escapeHtml(a.display_name)}</div>` : ''}
-                    <div>Session: ${escapeHtml(a.session_name)}</div>
+                    ${a.display_name ? `<div>Name: <strong>${escapeHtml(a.display_name)}</strong></div>` : ''}
                     <div>Status: ${statusHtml}</div>
-                    ${capHtml}
-                    ${warmupHtml}
-                    ${limitHtml}
-                    <div>Added: ${a.created_at}</div>
+                    <div>Daily: <strong>${a.remaining_today}</strong> / ${a.effective_limit} remaining</div>
+                    <div class="flex items-center gap-2 mt-2">
+                        <span class="text-sm text-muted">Daily limit:</span>
+                        <input type="number" value="${a.daily_limit}" min="1" max="100" class="input-narrow input-sm"
+                            onchange="setDailyLimit(${a.id}, this.value)">
+                    </div>
                 </div>
+                ${floodAlert}
+                ${warmupHtml}
                 <div class="actions">
                     ${a.is_connected
-                        ? `<button class="btn btn-outline btn-sm" onclick="disconnectAccount(${a.id})">Disconnect</button>`
-                        : `<button class="btn btn-success btn-sm" onclick="connectAccount(${a.id})">Connect</button>`
+                        ? `<button class="btn btn-outline btn-sm" onclick="disconnectAccount(${a.id})" title="Disconnect">
+                            <i data-lucide="unplug" class="icon-sm"></i> Disconnect
+                           </button>`
+                        : `<button class="btn btn-success btn-sm" onclick="connectAccount(${a.id})" title="Connect">
+                            <i data-lucide="plug" class="icon-sm"></i> Connect
+                           </button>`
                     }
                     ${a.is_flood_limited ? `<button class="btn btn-warning btn-sm" onclick="clearFlood(${a.id})">Clear Flood</button>` : ''}
                     ${(a.warmup_day !== null && !a.warmup_done) ? `<button class="btn btn-outline btn-sm" onclick="clearWarmup(${a.id})">Skip Warmup</button>` : ''}
-                    <button class="btn btn-danger btn-sm" onclick="deleteAccount(${a.id})">Delete</button>
+                    <button class="btn btn-ghost btn-sm" onclick="deleteAccount(${a.id})" title="Delete account">
+                        <i data-lucide="trash-2" class="icon-sm text-danger"></i>
+                    </button>
                 </div>
             </div>`;
         }).join('');
+        refreshIcons();
     } catch (e) {
         toast(e.message, 'error');
     }
@@ -330,6 +361,13 @@ async function clearWarmup(id) {
         loadAccounts();
     } catch (e) { toast(e.message, 'error'); }
 }
+
+// Close modals on backdrop click
+document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', function(e) {
+        if (e.target === this) closeModal(this.id);
+    });
+});
 
 loadAccounts();
 </script>
